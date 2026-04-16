@@ -62,8 +62,12 @@ dev = [
   "ipykernel",
 ]
 sf = [
-  "strawberryfields == 0.23.0",
-  "scipy < 1.14",               # To avoid import errors with the strawberryfields package
+  # Note: [sf] is restricted to Python < 3.13 to avoid time-consuming source builds.
+  # Legacy versions of scipy (and its dependencies like numpy) do not provide pre-built wheels for Python 3.13+.
+
+  "strawberryfields == 0.23.0; python_version < '3.13'",
+  "setuptools < 81.0.0; python_version < '3.13'",       # Required to keep 'pkg_resources', which was removed in newer setuptools and is needed by strawberryfields
+  "scipy < 1.14; python_version < '3.13'",              # To avoid import errors with the strawberryfields package
 ]
 
 [tool.setuptools.dynamic]
