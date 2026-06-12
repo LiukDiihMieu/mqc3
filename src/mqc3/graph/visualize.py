@@ -964,6 +964,7 @@ def make_figure(graph: GraphRepr, **kwargs: Unpack[_VisualizeConfigDict]) -> Fig
         2 * config.macronode_radius,
     )
 
+    plt.close(fig)
     return fig
 
 

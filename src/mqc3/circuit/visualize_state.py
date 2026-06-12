@@ -62,36 +62,72 @@ def meshed_wigner(state: BosonicState, xvec: ArrayLike, pvec: ArrayLike) -> NDAr
     return np.real_if_close(wigner)
 
 
+def _auto_vec(
+    state: BosonicState,
+    cutoff: float = 1e-6,
+    n_points: int = 200,
+) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
+    x_max = 0.0
+    p_max = 0.0
+    for coeff, gauss in zip(state.coeffs, state.gaussian_states, strict=True):
+        peak = abs(coeff) / np.sqrt(np.linalg.det(2 * np.pi * gauss.cov))
+        if peak <= cutoff:
+            continue
+        n_sigma = np.sqrt(-2.0 * np.log(cutoff / peak))
+        x_max = max(x_max, abs(float(gauss.mean[0])) + n_sigma * np.sqrt(float(gauss.cov[0, 0])))
+        p_max = max(p_max, abs(float(gauss.mean[1])) + n_sigma * np.sqrt(float(gauss.cov[1, 1])))
+    r = max(x_max, p_max)
+    return np.linspace(-r, r, n_points), np.linspace(-r, r, n_points)
+
+
 def make_wigner_figure(
     state: BosonicState,
-    xvec: ArrayLike,
-    pvec: ArrayLike,
+    xvec: ArrayLike | None = None,
+    pvec: ArrayLike | None = None,
     *,
+    cutoff: float = 1e-6,
+    n_points: int = 200,
     title: str | None = None,
 ) -> Figure:
     r"""Plots the discretized Wigner function of the specified mode.
 
     Args:
         state (BosonicState): The state to calculate the Wigner function for.
-        xvec (ArrayLike): Array of discretized :math:`x` quadrature values.
-        pvec (ArrayLike): Array of discretized :math:`p` quadrature values.
+        xvec (ArrayLike | None, optional): Array of discretized :math:`x` quadrature values.
+            If `None`, the range is determined automatically. Defaults to `None`.
+        pvec (ArrayLike | None, optional): Array of discretized :math:`p` quadrature values.
+            If `None`, the range is determined automatically. Defaults to `None`.
+        cutoff (float, optional): Absolute threshold below which the Wigner function is
+            considered zero when computing the auto range. Defaults to `1e-6`.
+        n_points (int, optional): Number of points in each axis for the auto range.
+            Defaults to `200`.
         title (str | None, optional): The title of the plot. Defaults to `None`.
 
     Returns:
         Figure: The matplotlib figure object.
     """
+    if xvec is None or pvec is None:
+        auto_x, auto_p = _auto_vec(state, cutoff=cutoff, n_points=n_points)
+        if xvec is None:
+            xvec = auto_x
+        if pvec is None:
+            pvec = auto_p
     wigner = meshed_wigner(state, xvec, pvec)
     wigner = np.round(wigner.real, 4)
     scale = float(np.max(wigner.real))
     nrm = colors.Normalize(-scale, scale)
+    r = max(float(np.abs(np.asarray(xvec)).max()), float(np.abs(np.asarray(pvec)).max()))
     fig, ax = plt.subplots()
+    ax.set_xlim(-r, r)
+    ax.set_ylim(-r, r)
     ax.set_aspect("equal")
     contour_plot = ax.contourf(xvec, pvec, wigner, 60, cmap="RdBu", norm=nrm)
     ax.set_xlabel("x")
     ax.set_ylabel("p")
     if title is not None:
         ax.set_title(title)
-    plt.colorbar(contour_plot, label="Wigner function value")
+    fig.colorbar(contour_plot, label="Wigner function value")
+    plt.close(fig)
     return fig
 
 

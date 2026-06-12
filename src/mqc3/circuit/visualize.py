@@ -416,6 +416,7 @@ class CircuitVisualizer:
             axes_op.invert_yaxis()
             self._plot_op_boxes(axes_op)
 
+        plt.close(fig)
         return fig
 
 
