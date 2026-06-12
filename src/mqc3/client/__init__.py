@@ -1,5 +1,5 @@
 """Client module for optical quantum computer."""
 
-from mqc3.client.simulator_client import SimulatorClient, SimulatorClientResult
+from mqc3.client.simulator_client import SimulatorBackend, SimulatorClient, SimulatorClientResult, TorchDType
 
-__all__ = ["SimulatorClient", "SimulatorClientResult"]
+__all__ = ["SimulatorBackend", "SimulatorClient", "SimulatorClientResult", "TorchDType"]
