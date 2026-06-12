@@ -1,9 +1,13 @@
-# MQC3
+# MQC-mini
 
-**SDK for Measurement-based Quantum Computation with Continuous-variable Cluster states.**
+**Simulation-only SDK for Measurement-based Quantum Computation with Continuous-variable Cluster states.**
 
-MQC3 is a software development kit for optical quantum computers.  
-It helps you design CV measurement‑based programs, connect to the MQC3 cloud, and run those programs on real hardware or simulators.
+MQC-mini is a software development kit for optical quantum computers.
+It helps you design CV measurement‑based programs and run them on a local simulator.
+
+> **MQC-mini** is a simulation-only fork of MQC3: the cloud connection and
+> real-hardware execution paths have been removed. Programs run locally via the
+> Strawberry Fields backend.
 
 > Looking for end‑user docs? See the user guide at [docs/source/index.md](docs/source/index.md).
 
@@ -98,9 +102,6 @@ See the user docs for details: [docs/source/index.md](docs/source/index.md).
 # basic tests
 pytest
 
-# tests requiring network access
-pytest --network
-
 # tests requiring simulator access
 pytest --simulator
 
@@ -108,7 +109,7 @@ pytest --simulator
 pytest -n auto --longrun
 
 # everything
-pytest -n auto --longrun --network --simulator
+pytest -n auto --longrun --simulator
 ```
 
 ## Project layout
@@ -130,7 +131,7 @@ pytest -n auto --longrun --network --simulator
 - `docs/` : User & developer documentation sources.
 - `src/mqc3/` : Main source tree.
   - `circuit/` : Circuit representation.
-  - `client/` :  Execution client and result types.
+  - `client/` :  Local simulator client and result types.
   - `execute/` : Unified wrapper over multiple clients; one-call submit & fetch results.
   - `feedforward/` : Mechanisms to update operation parameters conditioned on measurement outcomes.
   - `graph/` : Graph representation.
