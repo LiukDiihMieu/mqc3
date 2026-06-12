@@ -8,31 +8,7 @@ import numpy as np
 
 from mqc3.circuit import BosonicState, CircuitRepr, GaussianState
 from mqc3.circuit.ops import intrinsic, std
-from mqc3.client import MQC3Client
-from mqc3.client.mqc3_client import BackendType
 from mqc3.feedforward import feedforward
-
-
-def construct_client(
-    n_shots: int = 500,
-    token: str | None = None,
-    url: str | None = None,
-    backend: BackendType = "emulator",
-    *,
-    ca_cert_path: str | None = None,
-) -> MQC3Client:
-    client = MQC3Client(
-        n_shots=n_shots,
-        backend=backend,
-        ca_cert_file=ca_cert_path,
-        run_timeout=3600,
-    )
-    if token is not None:
-        client.token = token
-    if url is not None:
-        client.url = url
-
-    return client
 
 
 def circuit_only_intrinsics() -> CircuitRepr:
