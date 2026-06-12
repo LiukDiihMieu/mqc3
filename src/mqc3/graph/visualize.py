@@ -40,6 +40,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Above this node count labels become illegible and text rendering dominates draw time.
+_TEXT_NODE_THRESHOLD = 400
+
 
 def _shrink_graph(graph: GraphRepr) -> GraphRepr:
     max_h = 0
@@ -644,6 +647,7 @@ def _plot_macronodes(
     macronodes_patches = []
     lines = []
     line_colors = []
+    show_text = graph.n_total_macronodes <= _TEXT_NODE_THRESHOLD
     for ind in range(graph.n_total_macronodes):
         hw = graph.get_coord(ind)
         op = graph.get_operation(*hw)
@@ -652,25 +656,26 @@ def _plot_macronodes(
         # macronode itself
         macronodes_patches.append(config.make_macronode_patch(hw, op.type()))
 
-        # operation name
-        # Print feedforward parameters as nan.
-        config.add_operation_text(
-            ax,
-            hw,
-            op.type(),
-            [
-                p if not isinstance(p, FeedForward) else config.operation_params_symbol_format[op.type(), i].strip("$")
-                for i, p in enumerate(op.parameters)
-            ],
-        )
+        if show_text:
+            # operation name
+            # Print feedforward parameters as nan.
+            config.add_operation_text(
+                ax,
+                hw,
+                op.type(),
+                [
+                    p if not isinstance(p, FeedForward) else config.operation_params_symbol_format[op.type(), i].strip("$")
+                    for i, p in enumerate(op.parameters)
+                ],
+            )
 
-        # displacement
-        if config.show_displacement:
-            config.add_displacement_text(ax, hw, op)
+            # displacement
+            if config.show_displacement:
+                config.add_displacement_text(ax, hw, op)
 
-        # mode index
-        if config.show_mode_index:
-            config.add_mode_index_text(ax, hw, down, right)
+            # mode index
+            if config.show_mode_index:
+                config.add_mode_index_text(ax, hw, down, right)
 
         # through or swap sign
         is_through = left == right and up == down
@@ -721,30 +726,39 @@ def _plot_edges(
     config: _VisualizeConfig,
     io_modes_dict: dict[tuple[int, int], tuple[int, int, int, int]],
 ) -> Axes:
+    segments: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    colors: list[str] = []
+    linestyles: list[str] = []
+    curved_patches = []
+
     for ind in range(graph.n_total_macronodes):
         hw = graph.get_coord(ind)
+
         if ind + graph.n_local_macronodes < graph.n_total_macronodes:
             right_mode = io_modes_dict[hw][2]
-            ax.add_patch(
-                config.make_straight_edge_patch(
-                    hw,
-                    _Direction.RIGHT,
-                    right_mode,
-                ),
-            )
+            fx, fy = config.get_micronode_pos(hw, _Direction.RIGHT)
+            to_hw = (hw[0], hw[1] + 1)
+            tx, ty = config.get_micronode_pos(to_hw, _Direction.LEFT)
+            segments.append(((fx + config.micronode_radius, fy), (tx - config.micronode_radius, ty)))
+            colors.append(config.get_mode_color(right_mode))
+            linestyles.append(config.get_mode_linestyle(right_mode))
 
         if ind + 1 < graph.n_total_macronodes:
             down_mode = io_modes_dict[hw][3]
             if (ind + 1) % graph.n_local_macronodes == 0:
-                ax.add_patch(config.make_curved_edge_patch(hw, down_mode))
+                curved_patches.append(config.make_curved_edge_patch(hw, down_mode))
             else:
-                ax.add_patch(
-                    config.make_straight_edge_patch(
-                        hw,
-                        _Direction.DOWN,
-                        down_mode,
-                    ),
-                )
+                fx, fy = config.get_micronode_pos(hw, _Direction.DOWN)
+                to_hw = (hw[0] + 1, hw[1])
+                tx, ty = config.get_micronode_pos(to_hw, _Direction.UP)
+                segments.append(((fx, fy - config.micronode_radius), (tx, ty + config.micronode_radius)))
+                colors.append(config.get_mode_color(down_mode))
+                linestyles.append(config.get_mode_linestyle(down_mode))
+
+    ax.add_collection(LineCollection(segments, colors=colors, linestyles=linestyles), autolim=False)
+    for patch in curved_patches:
+        ax.add_patch(patch)
+
     return ax
 
 
