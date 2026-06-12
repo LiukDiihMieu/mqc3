@@ -59,7 +59,7 @@ def meshed_wigner(state: BosonicState, xvec: ArrayLike, pvec: ArrayLike) -> NDAr
     if np.any(np.abs(wigner.imag) > eps):
         msg = "Imaginary components are non-zero."
         logger.warning(msg)
-    return np.real_if_close(wigner)
+    return np.real(wigner)
 
 
 def _auto_vec(
@@ -113,8 +113,8 @@ def make_wigner_figure(
         if pvec is None:
             pvec = auto_p
     wigner = meshed_wigner(state, xvec, pvec)
-    wigner = np.round(wigner.real, 4)
-    scale = float(np.max(wigner.real))
+    wigner = np.round(wigner, 4)
+    scale = float(np.max(wigner))
     nrm = colors.Normalize(-scale, scale)
     r = max(float(np.abs(np.asarray(xvec)).max()), float(np.abs(np.asarray(pvec)).max()))
     fig, ax = plt.subplots()
