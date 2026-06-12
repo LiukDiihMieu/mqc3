@@ -22,7 +22,7 @@ from .common import teleportation_circuit
 
 
 def _get_state_after_simulation(circuit: CircuitRepr, *, n_modes: int) -> BosonicState:
-    client = SimulatorClient(n_shots=1, state_save_policy="all", remote=False)
+    client = SimulatorClient(n_shots=1, state_save_policy="all")
     result = execute(circuit, client)
 
     assert isinstance(result.client_result, SimulatorClientResult)
@@ -299,7 +299,7 @@ def test_teleportation():
     sq = 1.56
     circuit = teleportation_circuit((disp_x, disp_p), sq)
 
-    client = SimulatorClient(n_shots=5, state_save_policy="all", remote=False)
+    client = SimulatorClient(n_shots=5, state_save_policy="all")
     result = execute(circuit, client)
 
     assert isinstance(result.client_result, SimulatorClientResult)
