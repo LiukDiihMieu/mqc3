@@ -2,13 +2,13 @@
 
 # pyright: reportUnusedExpression=false
 
+from importlib.util import find_spec
 from math import pi
 
 import numpy as np
 import pytest
 
 pytest.importorskip("torch")
-pytest.importorskip("strawberryfields")
 
 from mqc3.circuit import BosonicState, CircuitRepr, GaussianState
 from mqc3.circuit.ops import intrinsic, std
@@ -17,6 +17,8 @@ from mqc3.client import SimulatorBackend, SimulatorClient, SimulatorClientResult
 from mqc3.execute import execute
 
 from .common import teleportation_circuit
+
+requires_sf = pytest.mark.skipif(find_spec("strawberryfields") is None, reason="requires strawberryfields")
 
 
 def _run_state(circuit: CircuitRepr, backend: SimulatorBackend) -> GaussianState:
@@ -48,6 +50,7 @@ def _two_mode_circuit(operation: Operation) -> CircuitRepr:
         std.Squeezing(-0.5),
     ],
 )
+@requires_sf
 def test_single_mode_operations_match_sf(operation: Operation):
     circuit = CircuitRepr("single_mode")
     circuit.Q(0) | intrinsic.Displacement(0.3, -1.2)
@@ -69,6 +72,7 @@ def test_single_mode_operations_match_sf(operation: Operation):
         std.BeamSplitter(0.4, -0.2),
     ],
 )
+@requires_sf
 def test_two_mode_operations_match_sf(operation: Operation):
     circuit = _two_mode_circuit(operation)
     sf_state = _run_state(circuit, "sf")
@@ -93,6 +97,7 @@ def test_measurement_sampling_and_seed():
     assert np.var(first_samples) == pytest.approx(0.5 * np.exp(-0.8), rel=0.08)
 
 
+@requires_sf
 def test_measurement_conditioned_covariance_matches_sf():
     circuit = CircuitRepr("conditioned_measurement")
     circuit.Q(0, 1) | intrinsic.ControlledZ(0.7)

@@ -1,7 +1,7 @@
 """Local simulator client for optical quantum computing.
 
-This client runs circuit representations on the local Strawberry Fields
-backend. The remote (cloud) execution path has been removed in MQC-mini.
+This client runs circuit representations on the local Strawberry Fields or
+PyTorch backend. The remote (cloud) execution path has been removed in MQC-mini.
 """
 
 from __future__ import annotations
