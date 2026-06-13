@@ -1,10 +1,14 @@
 (mqc3-index)=
 
-# MQC3 Documentation
+# MQC-mini Documentation
 
-MQC3 is a Python library designed for measurement-based optical quantum computing.
-It provides a simple and intuitive way to construct continuous-variable quantum circuits.
-These circuits can then be easily executed on an optical quantum computer that implements the measurement-based quantum computing (MBQC) paradigm using a two-dimensional cluster state.
+MQC-mini is a simulation-only Python library for measurement-based optical
+quantum computing. It provides tools for constructing continuous-variable
+quantum programs and running circuit representations on local simulators.
+
+The forward-only PyTorch Gaussian backend supports single-peak Gaussian states,
+Gaussian operations, homodyne measurements, and feedforward. Strawberry Fields
+is retained as a legacy reference backend.
 
 ## GET STARTED
 
@@ -24,9 +28,7 @@ quickstart.ipynb
 * [Constructing Graph Representation](graph_repr.ipynb)
 * [Constructing Machinery Representation](machinery_repr.ipynb)
 * [Feedforward](feedforward.ipynb)
-* [Executing Circuit](execution.ipynb)
 * [Simulating Circuit](simulation.ipynb)
-* [Executing Circuit Asynchronously](async_execution.ipynb)
 
 ```{toctree}
 :caption: BASIC
@@ -35,9 +37,7 @@ circuit_repr.ipynb
 graph_repr.ipynb
 machinery_repr.ipynb
 feedforward.ipynb
-execution.ipynb
 simulation.ipynb
-async_execution.ipynb
 ```
 
 ## ADVANCED

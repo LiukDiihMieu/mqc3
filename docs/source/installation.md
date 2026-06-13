@@ -13,7 +13,7 @@ kernelspec:
 
 # Installation
 
-MQC3 has been tested in the following environments:
+MQC-mini has been tested in the following environments:
 
 - **Python**: 3.10, 3.11, 3.12, 3.13  
 - **OS**: Ubuntu 24.04
@@ -52,6 +52,12 @@ To enable optional features, use extras:
   python3.12 -m pip install <path/to/sdk>[sf]
   ```
 
+- **PyTorch Gaussian simulator** (`[torch]`) — **Python 3.10–3.13**
+  ```sh
+  uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+  uv pip install <path/to/sdk>[torch]
+  ```
+
 You can combine extras as needed:
 
 - Simulator + all features (Python 3.10–3.12)
@@ -77,6 +83,24 @@ Use Python **3.10–3.12** when installing `[sf]`.
 |------:|:----:|:----:|:----:|:----:|
 | core  |  ✓   |  ✓   |  ✓   |  ✓   |
 | `[sf]`|  ✓   |  ✓   |  ✓   |  ✗   |
+| `[torch]` | ✓ | ✓ | ✓ | ✓ |
+
+## Selecting a simulator backend
+
+`SimulatorClient` runs locally. Select the PyTorch backend and its internal
+precision when constructing the client:
+
+```{code-cell} python
+from mqc3.client import SimulatorClient
+
+client = SimulatorClient(backend="torch", dtype="float64", seed=1234)
+```
+
+The PyTorch backend is a forward-only Gaussian circuit simulator. It currently
+supports `CircuitRepr` programs with single-peak Gaussian initial states,
+Gaussian operations, homodyne measurements, and feedforward. Use `dtype="float64"`
+for the numerical-stability baseline or `dtype="float32"` for lower-precision
+experiments.
 
 ## Verify installation
 

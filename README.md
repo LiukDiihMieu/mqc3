@@ -9,6 +9,11 @@ It helps you design CV measurement‑based programs and run them on a local simu
 > real-hardware execution paths have been removed. Programs run locally via the
 > Strawberry Fields or PyTorch Gaussian backend.
 
+The PyTorch backend is a forward-only Gaussian circuit simulator. It evolves
+single-peak Gaussian states through Gaussian gates and homodyne measurements
+using dense PyTorch linear algebra. Strawberry Fields remains available as a
+legacy reference backend.
+
 > Looking for end‑user docs? See the user guide at [docs/source/index.md](docs/source/index.md).
 
 ## Requirements
@@ -96,7 +101,9 @@ client = SimulatorClient(backend="torch", dtype="float64", seed=1234)
 ```
 
 The PyTorch backend defaults to `float64` for numerical stability. `float32`
-is available for experiments with less strongly squeezed states.
+is available for experiments with less strongly squeezed states. It currently
+runs on CPU and supports `CircuitRepr` programs with single-peak Gaussian
+initial states, Gaussian operations, homodyne measurements, and feedforward.
 
 ## Quickstart
 
@@ -106,13 +113,18 @@ After installation, try a minimal program:
 from math import pi
 from mqc3.circuit import CircuitRepr
 from mqc3.circuit.ops import intrinsic
+from mqc3.circuit.state import BosonicState
+from mqc3.client import SimulatorClient
 
 # Create a circuit representation of a program
 c = CircuitRepr("sample_circuit")
 c.Q(0) | intrinsic.PhaseRotation(phi=pi / 2)  # Apply a phase rotation of pi/2 to qumode 0
 c.Q(0) | intrinsic.Measurement(theta=0.0)     # Measure qumode 0 (homodyne)
+c.set_initial_state(0, BosonicState.vacuum())
 
-print(c)
+client = SimulatorClient(n_shots=10, backend="torch", seed=1234)
+result = client.run(c)
+print(result.circuit_result)
 ```
 
 See the user docs for details: [docs/source/index.md](docs/source/index.md).
@@ -155,7 +167,7 @@ pytest -n auto --longrun --simulator
 - `src/mqc3/` : Main source tree.
   - `circuit/` : Circuit representation.
   - `client/` :  Local simulator client and result types.
-  - `execute/` : Unified wrapper over multiple clients; one-call submit & fetch results.
+  - `execute/` : Unified wrapper for running representations with a client.
   - `feedforward/` : Mechanisms to update operation parameters conditioned on measurement outcomes.
   - `graph/` : Graph representation.
   - `machinery/` : Machinery representation.

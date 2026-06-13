@@ -1,6 +1,6 @@
-# Documentation Sources for MQC3
+# Documentation Sources for MQC-mini
 
-Source files for the [MQC3 user documentation](source/index.md).
+Source files for the [MQC-mini user documentation](source/index.md).
 
 ## Introduction
 
@@ -12,7 +12,7 @@ The user documentation is written in Markdown (`.md`) and Jupyter Notebook (`.ip
   - Linux (Ubuntu 24.04 LTS recommended; WSL2 on Windows 11 is also supported)
   - Windows 11
   - macOS (Apple silicon, ARM64)
-- Python: 3.10, 3.11, or 3.12
+- Python: 3.10, 3.11, 3.12, or 3.13
 
 ## Building the documentation
 
@@ -24,10 +24,11 @@ To generate the HTML files for the user documentation:
    cd ..
    ```
 
-2. Install SDK with local simulator and development tools:
+2. Install the SDK with the PyTorch simulator and development tools:
 
    ```sh
-   python -m pip install ".[sf,dev]"
+   uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+   uv pip install ".[torch,dev]"
    ```
 
 3. Change into the docs directory:
@@ -42,13 +43,7 @@ To generate the HTML files for the user documentation:
    sphinx-apidoc -e -M -f -o source/reference/ ../src/mqc3/
    ```
 
-5. Set the environment variable:
-
-   ```sh
-   export MQC3_CLIENT_TOKEN="<YOUR_API_TOKEN>"
-   ```
-
-6. Generate the HTML files in `build/html`:
+5. Generate the HTML files in `build/html`:
 
    ```sh
    make html

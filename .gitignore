@@ -9,6 +9,10 @@ build/
 # Jupyter
 .ipynb_checkpoints/
 
+# Documentation build artifacts
+docs/source/reference/
+docs/source/mqc3*.png
+
 # Environments
 .env
 .venv/
