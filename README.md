@@ -7,7 +7,7 @@ It helps you design CV measurement‑based programs and run them on a local simu
 
 > **MQC-mini** is a simulation-only fork of MQC3: the cloud connection and
 > real-hardware execution paths have been removed. Programs run locally via the
-> Strawberry Fields backend.
+> Strawberry Fields or PyTorch Gaussian backend.
 
 > Looking for end‑user docs? See the user guide at [docs/source/index.md](docs/source/index.md).
 
@@ -21,6 +21,7 @@ It helps you design CV measurement‑based programs and run them on a local simu
   - Core library: **3.10, 3.11, 3.12, 3.13**
   - Extra **`[sf]`** (StrawberryFields-based simulator): **3.10–3.12 only**  
     *(🚫 Not supported on Python 3.13)*
+  - Extra **`[torch]`** (PyTorch Gaussian simulator): **3.10–3.13**
 
 > **Why is `[sf]` unavailable on Python 3.13?**  
 > The `[sf]` stack requires `scipy < 1.14`. Prebuilt wheels for `scipy < 1.14` are not provided on Python 3.13, which forces a Fortran-based source build.  
@@ -32,6 +33,7 @@ It helps you design CV measurement‑based programs and run them on a local simu
 | -----: | :---: | :---: | :---: | :---: |
 |   core |   ✓   |   ✓   |   ✓   |   ✓   |
 | `[sf]` |   ✓   |   ✓   |   ✓   |   ✗   |
+| `[torch]` | ✓ | ✓ | ✓ | ✓ |
 
 ## Installation
 
@@ -74,6 +76,27 @@ python -m pip install "<path/to/sdk>[sf,dev]"
 ```
 
 [sf] is not included in [all]. Combine as [sf,all] when needed (on Python 3.10–3.12).
+
+### Installing the PyTorch Gaussian simulator ([torch])
+
+For a CPU-only installation, install the PyTorch CPU wheel first, then install
+MQC-mini with the `torch` extra:
+
+```sh
+uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+uv pip install "<path/to/sdk>[torch]"
+```
+
+Select the backend and floating-point precision through `SimulatorClient`:
+
+```python
+from mqc3.client import SimulatorClient
+
+client = SimulatorClient(backend="torch", dtype="float64", seed=1234)
+```
+
+The PyTorch backend defaults to `float64` for numerical stability. `float32`
+is available for experiments with less strongly squeezed states.
 
 ## Quickstart
 

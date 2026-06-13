@@ -68,6 +68,7 @@ sf = [
   "setuptools < 81.0.0; python_version < '3.13'",       # Required to keep 'pkg_resources', which was removed in newer setuptools and is needed by strawberryfields
   "scipy < 1.14; python_version < '3.13'",              # To avoid import errors with the strawberryfields package
 ]
+torch = ["torch >= 2.5"]
 
 [tool.setuptools.dynamic]
 version = { attr = "mqc3.__version__.__version__" }
