@@ -1,4 +1,21 @@
-"""Run Gaussian circuit representations with PyTorch."""
+"""Forward-only Gaussian circuit simulation with PyTorch.
+
+An N-mode, single-peak Gaussian state is completely described by a real mean
+vector and covariance matrix. This module stores quadratures in MQC3's
+``xxpp`` order::
+
+    mean = (x_0, ..., x_{N-1}, p_0, ..., p_{N-1})
+
+Gaussian gates act by a symplectic affine transformation,
+``mean -> S @ mean + d`` and ``cov -> S @ cov @ S.T``. Homodyne measurement
+samples one rotated quadrature and conditions the unmeasured modes using the
+standard Gaussian conditional-distribution formula.
+
+The implementation intentionally favors a small, readable correctness
+baseline. Each gate is embedded into a full-state transformation and shots are
+executed independently. Batched shots and more local matrix updates can be
+added later without changing the circuit-level semantics defined here.
+"""
 
 from __future__ import annotations
 
@@ -53,6 +70,19 @@ def _resolve_dtype(dtype: TorchDType):  # noqa: ANN202
 
 
 def _parameter_value(param: CircOpParam, measured: dict[int, float]) -> float:
+    """Resolve a constant or feedforward parameter for the current shot.
+
+    Measurement results are keyed by mode ID. Feedforward is evaluated only
+    when execution reaches the dependent operation, so it can read any
+    causally earlier measurement from the same shot.
+
+    Returns:
+        float: Resolved parameter value.
+
+    Raises:
+        TypeError: If feedforward evaluation returns another expression.
+        ValueError: If the parameter is invalid or its source mode is unavailable.
+    """
     if isinstance(param, float | int):
         return float(param)
     if isinstance(param, FeedForward):
@@ -73,6 +103,12 @@ def _parameter_value(param: CircOpParam, measured: dict[int, float]) -> float:
 
 @dataclass
 class _GaussianState:
+    """Internal real-valued representation of a single Gaussian peak.
+
+    ``mean`` has shape ``(2 * n_modes,)`` and ``cov`` has shape
+    ``(2 * n_modes, 2 * n_modes)``. Both use ``xxpp`` quadrature ordering.
+    """
+
     mean: torch.Tensor
     cov: torch.Tensor
 
@@ -82,6 +118,15 @@ class _GaussianState:
 
     @classmethod
     def from_circuit(cls, circuit: CircuitRepr, *, dtype: torch.dtype) -> _GaussianState:
+        """Assemble the circuit's independent single-mode initial states.
+
+        Returns:
+            _GaussianState: Assembled state in the requested dtype.
+
+        Raises:
+            TypeError: If an initial state is not a bosonic state.
+            ValueError: If an initial state is not a real, single-peak Gaussian.
+        """
         torch = _import_torch()
         n_modes = circuit.n_modes
         mean = torch.empty(2 * n_modes, dtype=dtype, device="cpu")
@@ -101,6 +146,7 @@ class _GaussianState:
                 msg = "Torch Gaussian backend supports only real-valued quadrature means."
                 raise ValueError(msg)
 
+            # A mode occupies positions (mode, mode + N) in xxpp ordering.
             indices = [mode, mode + n_modes]
             mean[indices] = torch.as_tensor(gaussian.mean.real, dtype=dtype)
             cov[np.ix_(indices, indices)] = torch.as_tensor(gaussian.cov, dtype=dtype)
@@ -108,6 +154,13 @@ class _GaussianState:
         return cls(mean=mean, cov=cov)
 
     def transform(self, modes: list[int], matrix: torch.Tensor, displacement: torch.Tensor | None = None) -> None:
+        """Apply a local symplectic affine transformation.
+
+        ``matrix`` is written in local xxpp order for the selected modes. It is
+        embedded into a full-system identity matrix before updating the state.
+        This dense implementation keeps the baseline straightforward; a future
+        optimized backend can update only the affected rows and columns.
+        """
         torch = _import_torch()
         indices = modes + [mode + self.n_modes for mode in modes]
         transform = torch.eye(2 * self.n_modes, dtype=self.mean.dtype, device=self.mean.device)
@@ -116,15 +169,30 @@ class _GaussianState:
         if displacement is not None:
             self.mean[indices] += displacement
         self.cov = transform @ self.cov @ transform.T
+        # Roundoff can make an analytically symmetric covariance slightly asymmetric.
         self.cov = (self.cov + self.cov.T) / 2
 
     def measure(self, mode: int, theta: float, *, generator: torch.Generator) -> float:
+        r"""Measure and condition on :math:`x\sin(\theta) + p\cos(\theta)`.
+
+        For measurement direction ``u``, the sampled scalar has mean
+        ``u.T @ mode_mean`` and variance ``u.T @ mode_cov @ u``. Correlations
+        with the measured quadrature then update the remaining modes through a
+        rank-one Gaussian conditional update.
+
+        Returns:
+            float: Sampled homodyne result.
+
+        Raises:
+            ValueError: If numerical error produces a negative variance.
+        """
         torch = _import_torch()
         n_modes = self.n_modes
         measured_indices = [mode, mode + n_modes]
         remaining_indices = [i for i in range(2 * n_modes) if i not in measured_indices]
         direction = torch.tensor([sin(theta), cos(theta)], dtype=self.mean.dtype)
 
+        # Marginal distribution of the selected rotated quadrature.
         measured_mean = self.mean[measured_indices]
         measured_cov = self.cov[np.ix_(measured_indices, measured_indices)]
         mean = direction @ measured_mean
@@ -137,6 +205,7 @@ class _GaussianState:
         sample = mean + torch.sqrt(variance) * torch.randn((), dtype=self.mean.dtype, generator=generator)
 
         if remaining_indices:
+            # Schur-complement update conditioned on the sampled outcome.
             cross_cov = self.cov[np.ix_(remaining_indices, measured_indices)]
             covariance_with_measurement = cross_cov @ direction
             if variance > tolerance:
@@ -150,7 +219,8 @@ class _GaussianState:
                     / variance
                 )
 
-        # Strawberry Fields leaves measured modes as independent vacuum modes.
+        # Public saved states keep a fixed 2N shape. A measured slot is therefore
+        # represented as an independent vacuum mode instead of being removed.
         self.mean[measured_indices] = 0
         self.cov[measured_indices, :] = 0
         self.cov[:, measured_indices] = 0
@@ -162,6 +232,14 @@ class _GaussianState:
         return float(sample.item())
 
     def to_bosonic_state(self) -> BosonicState:
+        """Convert the internal tensors to MQC3's public state containers.
+
+        ``GaussianState`` stores means in a complex array for generality, even
+        though quadrature means in this Gaussian simulator are real.
+
+        Returns:
+            BosonicState: Public representation of the current Gaussian state.
+        """
         return BosonicState(
             np.array([1.0 + 0.0j], dtype=np.complex128),
             [
@@ -174,11 +252,13 @@ class _GaussianState:
 
 
 def _rotation(phi: float, *, dtype: torch.dtype) -> torch.Tensor:
+    """Return the one-mode phase-space rotation matrix."""
     torch = _import_torch()
     return torch.tensor([[cos(phi), -sin(phi)], [sin(phi), cos(phi)]], dtype=dtype)
 
 
 def _std_beam_splitter(theta: float, phi: float, *, dtype: torch.dtype) -> torch.Tensor:
+    """Return the standard beam-splitter matrix in two-mode xxpp order."""
     torch = _import_torch()
     c, s = cos(theta), sin(theta)
     cp, sp = cos(phi), sin(phi)
@@ -194,6 +274,7 @@ def _std_beam_splitter(theta: float, phi: float, *, dtype: torch.dtype) -> torch
 
 
 def _intrinsic_beam_splitter(sqrt_r: float, theta_rel: float, *, dtype: torch.dtype) -> torch.Tensor:
+    """Return MQC3's intrinsic beam-splitter matrix in two-mode xxpp order."""
     torch = _import_torch()
     alpha = (theta_rel + acos(sqrt_r)) / 2
     beta = (theta_rel - acos(sqrt_r)) / 2
@@ -210,13 +291,22 @@ def _intrinsic_beam_splitter(sqrt_r: float, theta_rel: float, *, dtype: torch.dt
     )
 
 
-def _apply_operation(  # noqa: C901, PLR0912, PLR0914
+def _apply_operation(  # noqa: C901, PLR0912, PLR0914, PLR0915
     state: _GaussianState,
     operation: Operation,
     measured: dict[int, float],
     *,
     generator: torch.Generator,
 ) -> None:
+    """Apply one circuit operation to an in-progress shot.
+
+    Gate parameters are resolved here, rather than while constructing the
+    circuit, because feedforward values become available only after preceding
+    measurements have executed.
+
+    Raises:
+        TypeError: If the operation is unsupported by this simulator.
+    """
     torch = _import_torch()
     dtype = state.mean.dtype
     modes = operation.opnd().get_ids()
@@ -285,6 +375,11 @@ def _run_shot(
     dtype: torch.dtype,
     generator: torch.Generator,
 ) -> tuple[dict[int, float], BosonicState]:
+    """Execute one statistically independent circuit shot.
+
+    Returns:
+        tuple[dict[int, float], BosonicState]: Final measurement per mode and state.
+    """
     state = _GaussianState.from_circuit(circuit, dtype=dtype)
     measured: dict[int, float] = {}
     for operation in circuit:
@@ -309,7 +404,14 @@ def local_run(
     dtype: TorchDType = "float64",
     seed: int | None = None,
 ) -> TorchLocalResult:
-    """Run a single-peak Gaussian circuit with PyTorch.
+    """Run independent shots of a single-peak Gaussian circuit.
+
+    Args:
+        n_shots (int): Number of independent circuit executions.
+        state_save_policy (str): Whether to save all, the first, or no final states.
+        circuit (CircuitRepr): Circuit to execute.
+        dtype (TorchDType): Floating-point precision used for internal tensors.
+        seed (int | None): Optional random seed for reproducible homodyne samples.
 
     Returns:
         TorchLocalResult: Measurement values and optionally saved states.
@@ -327,6 +429,8 @@ def local_run(
     states: list[BosonicState] = []
     for shot in range(n_shots):
         measured, state = _run_shot(circuit, dtype=torch_dtype, generator=generator)
+        # CircuitResult indices are mode IDs. Repeated measurements of one mode
+        # intentionally expose only that mode's final measurement.
         shot_values.append(
             CircuitShotMeasuredValue(
                 CircuitOperationMeasuredValue(index=mode, value=value) for mode, value in sorted(measured.items())
