@@ -1,7 +1,7 @@
 """Local simulator client for optical quantum computing.
 
-This client runs circuit representations on the local Strawberry Fields or
-PyTorch backend. The remote (cloud) execution path has been removed in MQC-mini.
+This client runs circuit representations on the local PyTorch backend. The
+remote (cloud) execution path has been removed in MQC-mini.
 """
 
 from __future__ import annotations
@@ -70,9 +70,6 @@ StateSavePolicy = Literal["all", "first_only", "none"]
 - ``first_only``: Save only the state of the first shot.
 - ``none``: Do not save any states.
 """
-
-SimulatorBackend = Literal["sf", "torch"]
-"""Available local simulator backends."""
 
 TorchDType = Literal["float32", "float64"]
 """Floating-point precision used by the PyTorch backend."""
@@ -276,7 +273,7 @@ class SimulatorClientResult(AbstractClientResult):
 class SimulatorClient(AbstractClient):
     """Local simulator client for optical quantum computing.
 
-    Representations are simulated locally with Strawberry Fields or PyTorch.
+    Representations are simulated locally with PyTorch.
 
     Limitations:
 
@@ -295,21 +292,17 @@ class SimulatorClient(AbstractClient):
     timezone: timezone | ZoneInfo
     """Timezone to use."""
 
-    backend: SimulatorBackend
-    """Local simulator backend."""
-
     dtype: TorchDType
     """Floating-point precision used by the PyTorch backend."""
 
     seed: int | None
     """Random seed used by the PyTorch backend."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         n_shots: int = 1024,
         state_save_policy: StateSavePolicy = "none",
         *,
-        backend: SimulatorBackend = "sf",
         dtype: TorchDType = "float64",
         seed: int | None = None,
         timezone: timezone | ZoneInfo = _TZ_UTC,
@@ -320,7 +313,6 @@ class SimulatorClient(AbstractClient):
             n_shots (int): The number of shots.
             state_save_policy (:data:`StateSavePolicy`): Policy for saving states after simulation
                 (all, first_only or none).
-            backend (:data:`SimulatorBackend`): Local simulator backend.
             dtype (:data:`TorchDType`): Floating-point precision used by the PyTorch backend.
             seed (int | None): Random seed used by the PyTorch backend.
             timezone (timezone | ZoneInfo): Timezone to use (default: UTC).
@@ -333,43 +325,34 @@ class SimulatorClient(AbstractClient):
             ... )
 
         Raises:
-            ValueError: If the backend or dtype is unsupported.
+            ValueError: If the dtype is unsupported.
         """
         AbstractClient.__init__(self, n_shots=n_shots)
-        if backend not in {"sf", "torch"}:
-            msg = f"Unsupported simulator backend: {backend}."
-            raise ValueError(msg)
         if dtype not in {"float32", "float64"}:
             msg = f"Unsupported torch dtype: {dtype}."
             raise ValueError(msg)
         self.state_save_policy = state_save_policy
-        self.backend = backend
         self.dtype = dtype
         self.seed = seed
         self.timezone = timezone
 
     def _run_local(self, circuit: CircuitRepr) -> SimulatorClientResult:
         execution_started_at = datetime.now(tz=self.timezone)
-        if self.backend == "sf":
-            from mqc3.client._local_simulator import local_run  # noqa: PLC0415
+        from mqc3.client._torch_simulator import local_run  # noqa: PLC0415
 
-            local_result = local_run(self.n_shots, self.state_save_policy, circuit)
-        else:
-            from mqc3.client._torch_simulator import local_run  # noqa: PLC0415
-
-            local_result = local_run(
-                self.n_shots,
-                self.state_save_policy,
-                circuit,
-                dtype=self.dtype,
-                seed=self.seed,
-            )
+        local_result = local_run(
+            self.n_shots,
+            self.state_save_policy,
+            circuit,
+            dtype=self.dtype,
+            seed=self.seed,
+        )
 
         execution_finished_at = datetime.now(tz=self.timezone)
 
         return SimulatorClientResult(
             execution_details=ExecutionDetails(
-                simulator_version=self.backend,
+                simulator_version="torch",
                 timeline=JobTimeline(
                     submitted_at=execution_started_at,
                     execution_started_at=execution_started_at,
