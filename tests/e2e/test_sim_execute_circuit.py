@@ -1,4 +1,9 @@
-"""Tests for executing circuit representations on the local simulator."""
+"""Tests for executing circuit representations on the local PyTorch simulator.
+
+These check the Gaussian circuit backend against analytic expectations
+(symplectic transforms of the mean and covariance), independent of any
+reference simulator.
+"""
 
 # pyright: reportUnusedExpression=false
 
@@ -9,7 +14,7 @@ import numpy as np
 import pytest
 from allpairspy import AllPairs
 
-pytest.importorskip("strawberryfields")
+pytest.importorskip("torch")
 
 
 from mqc3.circuit import BosonicState, CircuitRepr, GaussianState
@@ -335,3 +340,36 @@ def test_teleportation():
         assert cov[2][5] == pytest.approx(0, abs=1e-5)
         assert cov[5][2] == pytest.approx(0, abs=1e-5)
         assert cov[5][5] == pytest.approx(10 ** (-sq) * hbar / 2, rel=1e-5)
+
+
+def test_measurement_sampling_and_seed():
+    circuit = CircuitRepr("measurement_sampling")
+    circuit.Q(0) | intrinsic.Displacement(1.5, -0.5)
+    circuit.Q(0) | intrinsic.Measurement(theta=pi / 2)
+    circuit.set_initial_state(0, BosonicState.squeezed(r=0.4, phi=0.0))
+
+    first = SimulatorClient(n_shots=4000, seed=1234).run(circuit)
+    second = SimulatorClient(n_shots=4000, seed=1234).run(circuit)
+    first_samples = np.array([shot.get_value(0) for shot in first.circuit_result])
+    second_samples = np.array([shot.get_value(0) for shot in second.circuit_result])
+
+    assert np.array_equal(first_samples, second_samples)
+    assert np.mean(first_samples) == pytest.approx(1.5, abs=0.03)
+    assert np.var(first_samples) == pytest.approx(0.5 * np.exp(-0.8), rel=0.08)
+
+
+def test_dtype_is_configurable():
+    circuit = CircuitRepr("dtype")
+    circuit.Q(0) | intrinsic.PhaseRotation(0.2)
+    circuit.set_initial_state(0, BosonicState.vacuum())
+
+    state = _get_state_after_simulation(circuit, n_modes=1).get_gaussian_state(0)
+    float32_result = SimulatorClient(n_shots=1, state_save_policy="all", dtype="float32").run(circuit)
+    float32_state = float32_result.states[0].get_gaussian_state(0)
+    assert np.allclose(float32_state.mean, state.mean)
+    assert np.allclose(float32_state.cov, state.cov)
+
+
+def test_invalid_dtype():
+    with pytest.raises(ValueError, match="Unsupported torch dtype"):
+        SimulatorClient(dtype="invalid")  # pyright: ignore[reportArgumentType]
