@@ -26,7 +26,7 @@ In this SDK, variables are represented by the class `Variable` or a subclass the
 
 The way variables are obtained depends on the specific representation of the quantum circuit.  
 For details on how to access measurement results and update parameters, refer to the documentation for each representation:  
-([Circuit representation](circuit_repr.ipynb), [Graph representation](graph_repr.ipynb), [Machinery representation](machinery_repr.ipynb)).
+([Circuit representation](circuit_repr.md), [Graph representation](graph_repr.md), [Machinery representation](machinery_repr.md)).
 
 ## Functions
 

@@ -19,9 +19,9 @@ MQC-mini retains three representations of optical quantum programs: **circuit re
 
 | Representation | Brief description |
 | --- | --- |
-| Circuit representation | A continuous-variable quantum circuit consisting of modes and operations. This is the representation accepted by the current local simulators. See [Constructing Circuit Representation](circuit_repr.ipynb). |
-| Graph representation | A two-dimensional measurement-based representation. See [Constructing Graph Representation](graph_repr.ipynb). |
-| Machinery representation | A time-ordered representation derived from a graph. See [Constructing Machinery Representation](machinery_repr.ipynb) and [Theory](theory.md). |
+| Circuit representation | A continuous-variable quantum circuit consisting of modes and operations. This is the representation accepted by the current local simulators. See [Constructing Circuit Representation](circuit_repr.md). |
+| Graph representation | A two-dimensional measurement-based representation. See [Constructing Graph Representation](graph_repr.md). |
+| Machinery representation | A time-ordered representation derived from a graph. See [Constructing Machinery Representation](machinery_repr.md) and [Theory](theory.md). |
 
 ## Example circuit
 

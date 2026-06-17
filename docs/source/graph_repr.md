@@ -36,7 +36,7 @@ g = GraphRepr(3, 4)
 ```
 
 You can visualize graph representation using `make_figure`.
-See [Visualizing Graph Representation](viz_graph_repr.ipynb) for detailed usage of `make_figure`.
+See [Visualizing Graph Representation](viz_graph_repr.md) for detailed usage of `make_figure`.
 
 ```{code-cell} ipython3
 from mqc3.graph.visualize import make_figure

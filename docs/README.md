@@ -60,6 +60,15 @@ notebook, or pair it back to `.ipynb` with `jupytext --to ipynb <file>.md`.
    Without `--execute`, pages render with **no** code-cell outputs (the `.md`
    sources do not store outputs); use `--execute` or the static `./build.sh`.
 
+   Before opening a PR (or in CI), validate the build including links:
+
+   ```sh
+   ./build.sh check   # build + execute + --check-links --strict
+   ```
+
+   A plain build silently keeps unresolved links; `--check-links` is required
+   to catch dead internal/external links (and `--strict` makes them fail).
+
    The pages execute against the **`mqc3`** Jupyter kernel
    (`kernelspec: mqc3` in each file's front matter), which points at the
    `mqc3` conda environment. Register it once with:

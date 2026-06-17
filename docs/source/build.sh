@@ -10,6 +10,7 @@
 #   ./build.sh                 # build static HTML into _build/html (with --execute)
 #   ./build.sh --html          # same (explicit)
 #   ./build.sh serve [port]    # serve the built _build/html on one port (default 8080)
+#   ./build.sh check           # build + execute + --check-links --strict (catches dead links)
 #   ./build.sh start --execute # live preview with hot reload + executed outputs
 # Any extra args are passed through to `jupyter-book`.
 set -euo pipefail
@@ -28,6 +29,13 @@ if [ "${1:-}" = "serve" ]; then
   fi
   echo "🌐 Serving _build/html at http://localhost:${SERVE_PORT}  (Ctrl-C to stop)"
   exec python -m http.server "${SERVE_PORT}" --directory _build/html
+fi
+
+# `check` mode: full build with execution + link checking, failing on any
+# warning/error (incl. dead internal links, which a plain build silently keeps).
+if [ "${1:-}" = "check" ]; then
+  shift
+  set -- build --html --execute --check-links --strict "$@"
 fi
 
 # Default action: static HTML build with execution.

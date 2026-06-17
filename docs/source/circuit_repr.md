@@ -210,7 +210,7 @@ c
 ```
 
 The created circuit can be visualized using the `make_figure` function.
-For more details, see [Visualizing Circuit Representation](viz_circuit_repr.ipynb).
+For more details, see [Visualizing Circuit Representation](viz_circuit_repr.md).
 
 ```{code-cell}
 from mqc3.circuit.visualize import make_figure
