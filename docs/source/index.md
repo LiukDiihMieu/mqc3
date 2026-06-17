@@ -13,68 +13,28 @@ is retained as a legacy reference backend.
 ## GET STARTED
 
 * [Installation](installation.md)
-* [Quickstart](quickstart.ipynb)
-
-```{toctree}
-:caption: GET STARTED
-:hidden:
-installation.md
-quickstart.ipynb
-```
+* [Quickstart](quickstart.md)
 
 ## BASIC
 
-* [Constructing Circuit Representation](circuit_repr.ipynb)
-* [Constructing Graph Representation](graph_repr.ipynb)
-* [Constructing Machinery Representation](machinery_repr.ipynb)
-* [Feedforward](feedforward.ipynb)
-* [Simulating Circuit](simulation.ipynb)
-
-```{toctree}
-:caption: BASIC
-:hidden:
-circuit_repr.ipynb
-graph_repr.ipynb
-machinery_repr.ipynb
-feedforward.ipynb
-simulation.ipynb
-```
+* [Constructing Circuit Representation](circuit_repr.md)
+* [Constructing Graph Representation](graph_repr.md)
+* [Constructing Machinery Representation](machinery_repr.md)
+* [Feedforward](feedforward.md)
+* [Simulating Circuit](simulation.md)
 
 ## ADVANCED
 
-* [Visualizing Circuit Representation](viz_circuit_repr.ipynb)
-* [Visualizing Graph Representation](viz_graph_repr.ipynb)
-* [Visualizing Machinery Representation](viz_machinery_repr.ipynb)
-
-```{toctree}
-:caption: ADVANCED
-:hidden:
-viz_circuit_repr.ipynb
-viz_graph_repr.ipynb
-viz_machinery_repr.ipynb
-```
+* [Visualizing Circuit Representation](viz_circuit_repr.md)
+* [Visualizing Graph Representation](viz_graph_repr.md)
+* [Visualizing Machinery Representation](viz_machinery_repr.md)
 
 ## THEORY
 
 * [Gates](gates.md)
 * [Theory](theory.md)
-* [Derivation](derivation.ipynb)
+* [Derivation](derivation.md)
 
-```{toctree}
-:caption: THEORY
-:hidden:
-gates.md
-theory.md
-derivation.ipynb
-```
-
-## REFERENCE
-
-* [API Reference](reference/modules.rst)
-
-```{toctree}
-:caption: REFERENCE
-:hidden:
-:maxdepth: 2
-reference/modules.rst
-```
+<!-- REFERENCE (API) is intentionally not built in the Jupyter Book 2 setup.
+     The Sphinx autodoc pipeline (conf.py, Makefile, docs/README.md) is kept so
+     the API Reference can be re-added later. Navigation lives in myst.yml. -->

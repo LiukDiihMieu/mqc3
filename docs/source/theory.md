@@ -262,7 +262,7 @@ Correcting the bottom mode using the measurement results {math}`m_1` and {math}`
 This is applied as a displacement (defined in {ref}`sec:gate-displacement`) operation.
 The corrected mode is the output of the teleportation circuit.
 
-From Eqs. {math:numref}`eq:beamsplitter` and {math:numref}`eq:measurement`, it can be shown that the measured values {math}`m_1` and {math}`m_2` are the results of measuring the right-hand side of
+From Eqs. [](#eq:beamsplitter) and [](#eq:measurement), it can be shown that the measured values {math}`m_1` and {math}`m_2` are the results of measuring the right-hand side of
 
 ```{math}
 ---
@@ -281,7 +281,7 @@ label: eq:teleportation-measured-values
 \right].
 ```
 
-Additionally, from Eq. {math:numref}`eq:beamsplitter`, there is a relation between mode 2 and the output mode before correction, given by
+Additionally, from Eq. [](#eq:beamsplitter), there is a relation between mode 2 and the output mode before correction, given by
 
 ```{math}
 ---
@@ -303,7 +303,7 @@ V\left(\theta_1, \theta_2\right) \binom{\hat{x}_{\text {in}}}{\hat{p}_{\text {in
 \boldsymbol{f}_\text{tel} \left(\theta_1, \theta_2; m_1, m_2\right)
 ```
 
-using Eqs. {math:numref}`eq:teleportation-measured-values` and {math:numref}`eq:teleportation-mode2`.
+using Eqs. [](#eq:teleportation-measured-values) and [](#eq:teleportation-mode2).
 The coefficient matrix {math}`V\left(\theta_1, \theta_2\right)` is calculated as
 
 ```{math}
@@ -339,7 +339,7 @@ label: eq:teleportation-ff
 ```
 
 is cancelled out by the feedforward {math}`\boldsymbol{f}_\text{tel} \left(\theta_1, \theta_2; m_1, m_2\right)`.
-When the feedforward is applied, Eq. {math:numref}`eq:teleportation-circuit-output` finally becomes
+When the feedforward is applied, Eq. [](#eq:teleportation-circuit-output) finally becomes
 
 ```{math}
 V\left(\theta_1, \theta_2\right) \binom{\hat{x}_{\text {in}}}{\hat{p}_{\text {in}}}.
@@ -388,7 +388,7 @@ The transformation from the left to right in {numref}`fig:macronode_measurement_
 ````
 
 The feedforward within the two teleportation circuits is {math}`\boldsymbol{f}_\text{tel} \left(\theta^k_{b}, \theta^k_{a}; m^k_{b}, m^k_{a}\right)` and {math}`\boldsymbol{f}_\text{tel} \left(\theta^k_{d}, \theta^k_{c}; m^k_{d}, m^k_{c}\right)`, respectively.
-By applying Eq. {math:numref}`eq:teleportation-circuit-output`, the right side of {numref}`fig:macronode_measurement_circuit` is simplified into the form of {numref}`fig:macronode_circuit`. In this page, we refer to this as the macronode circuit.
+By applying Eq. [](#eq:teleportation-circuit-output), the right side of {numref}`fig:macronode_measurement_circuit` is simplified into the form of {numref}`fig:macronode_circuit`. In this page, we refer to this as the macronode circuit.
 
 ```{figure} _images/ff_before_bs.svg
 :name: fig:macronode_circuit
@@ -456,7 +456,7 @@ Consider transforming the measurement angles {math}`\boldsymbol{\theta}^k=\left(
 When {math}`n_a`, {math}`n_b`, {math}`n_c`, and {math}`n_d` are all even, the operations applied to the modes into macronode {math}`k` (including {ref}`sec:displacement`), feedforward, and measured values remain invariant under this transformation.
 In other words, measurement angles congruent modulo {math}`2\pi` can be considered equivalent.
 
-On the other hand, if any of {math}`n_a`, {math}`n_b`, {math}`n_c`, or {math}`n_d` is odd, as can be easily verified from Eqs. {math:numref}`eq:teleportation-circuit` and {math:numref}`eq:teleportation-ff`, the operations and feedforward remain unchanged, but the measured values are altered from {math}`\left(m_a^k, m_b^k, m_c^k, m_d^k\right)` to
+On the other hand, if any of {math}`n_a`, {math}`n_b`, {math}`n_c`, or {math}`n_d` is odd, as can be easily verified from Eqs. [](#eq:teleportation-circuit) and [](#eq:teleportation-ff), the operations and feedforward remain unchanged, but the measured values are altered from {math}`\left(m_a^k, m_b^k, m_c^k, m_d^k\right)` to
 
 ```{math}
 \begin{array}{c}
@@ -475,7 +475,7 @@ Users must not equate measurement angles congruent modulo {math}`\pi` simply bec
 
 ### Measurement and initialization
 
-When {math}`\theta_a\equiv\theta_b` or {math}`\theta_c\equiv\theta_d` (mod {math}`\pi`), Eqs. {math:numref}`eq:teleportation-circuit` and {math:numref}`eq:teleportation-ff` diverge, meaning that setting the measurement angles this way within a macronode is generally not allowed.
+When {math}`\theta_a\equiv\theta_b` or {math}`\theta_c\equiv\theta_d` (mod {math}`\pi`), Eqs. [](#eq:teleportation-circuit) and [](#eq:teleportation-ff) diverge, meaning that setting the measurement angles this way within a macronode is generally not allowed.
 However, in the specific case where {math}`\theta_a\equiv\theta_b\equiv\theta_c\equiv\theta_d` (mod {math}`2\pi`), the macronode can be treated as the final measurement of the modes propagated through the quantum circuit and the generation of new modes.
 Since the input modes to macronode {math}`k` are subjected to the foursplitter {math}`\hat{A}` before being measured, the measured values {math}`\boldsymbol{m}^k=\left(m_a^k, m_b^k, m_c^k, m_d^k\right)` differ from the values originally intended to be measured.
 By applying the inverse foursplitter as
@@ -618,7 +618,7 @@ B_\uparrow \left(\begin{array}{l}
 ```{admonition} Derivation
 :class: hint
 
-Eq. {math:numref}`eq:macronode-ff` is derived in {ref}`sec:macronode-ff-derivation`.
+Eq. [](#eq:macronode-ff) is derived in {ref}`sec:macronode-ff-derivation`.
 ```
 
 (sec:numerical-feedforward)=
@@ -726,7 +726,7 @@ The feedforward for the measured values is achieved by performing the following 
 
 ### Feedforward immediately after initialization
 
-The feedforward immediately after initialization is implemented by rewriting the standard feedforward in Eq. {math:numref}`eq:macronode-ff` as
+The feedforward immediately after initialization is implemented by rewriting the standard feedforward in Eq. [](#eq:macronode-ff) as
 
 ```{math}
 ---
@@ -755,7 +755,7 @@ label: eq:initialization-macronode-ff
 ```
 
 As explained in {ref}`sec:displacement-in-initialization`, it is possible to apply a displacement simultaneously with initialization, but since the displacements are treated as gates and not included in the initialization configuration, as described in {ref}`sec:displacement`, this will not be done.
-When the feedforward values in Eq. {math:numref}`eq:initialization-macronode-ff` are propagated to the measured values, they take the following form.
+When the feedforward values in Eq. [](#eq:initialization-macronode-ff) are propagated to the measured values, they take the following form.
 
 ```{math}
 ---
@@ -786,7 +786,7 @@ label: eq:initialization-numerical-ff
 ```{admonition} Derivation
 :class: hint
 
-Eq. {math:numref}`eq:initialization-numerical-ff` is derived in {ref}`sec:initialization-ff-derivation`.
+Eq. [](#eq:initialization-numerical-ff) is derived in {ref}`sec:initialization-ff-derivation`.
 ```
 
 The feedforward equations for the measured values are modified as follows.
@@ -862,7 +862,7 @@ label: eq:numerical-displacement
 ```{admonition} Derivation
 :class: hint
 
-Eq. {math:numref}`eq:numerical-displacement` is derived in {ref}`sec:displacement-derivation`.
+Eq. [](#eq:numerical-displacement) is derived in {ref}`sec:displacement-derivation`.
 ```
 
 Using these, the numerical feedforward equations are modified to
@@ -904,7 +904,7 @@ Following this decomposition, although there is ambiguity in the exact homodyne 
 To perform a single-mode operation, the two inputs of each macronode must not interact with each other, requiring the use of measurement angles that realize either the through or swap conditions.
 The discussion here will focus on the through case, particularly on single-mode operations that generally involves two macronodes, {math}`k` and {math}`k+N`.
 This does not result in a loss of generality, as the two input modes of the macronode undergo the same operation, whether in the case of passing through or swapping, as stated in {ref}`sec:through-and-swap`.
-In this case, if the measurement angles satisfy the following condition, the mode {math}`d_k` will undergo the single-mode operation described by Eq. {math:numref}`eq:general-1mode`.
+In this case, if the measurement angles satisfy the following condition, the mode {math}`d_k` will undergo the single-mode operation described by Eq. [](#eq:general-1mode).
 
 ```{math}
 ---
@@ -914,7 +914,7 @@ R\left(\alpha\right)S\left(\lambda\right)R\left(\beta\right) = V\left(\theta_b^k
 ```
 
 Here, {math}`\theta_a^k=\theta_c^k`, {math}`\theta_b^k=\theta_d^k`, {math}`\theta_a^{k+N}=\theta_c^{k+N}`, and {math}`\theta_b^{k+N}=\theta_d^{k+N}`.
-For example, three parameters {math}`\alpha`, {math}`\beta`, and {math}`\lambda` that satisfy the following constraints meet Eq. {math:numref}`eq:general-1mode-through-N`.
+For example, three parameters {math}`\alpha`, {math}`\beta`, and {math}`\lambda` that satisfy the following constraints meet Eq. [](#eq:general-1mode-through-N).
 
 ```{math}
 ---
@@ -928,7 +928,7 @@ e^\lambda & =\cot \left(\frac{\theta_{b}^k-\theta_{a}^k}{2}\right) \\
 \end{aligned}
 ```
 
-By solving these, the measurement angles that implement the operation in Eq. {math:numref}`eq:general-1mode` can be determined.
+By solving these, the measurement angles that implement the operation in Eq. [](#eq:general-1mode) can be determined.
 
 ```{seealso}
 The proof can be found in {ref}`sec:graph-arbitrary-angles-validation`.

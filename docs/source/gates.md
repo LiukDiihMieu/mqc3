@@ -193,7 +193,7 @@ R=\cos^2 (\alpha-\beta).
 \right.
 ```
 
-Eqs. {math:numref}`eq:bs-alpha-beta` are not the general solution of Eqs. {math:numref}`eq:bs-alpha-beta-general`.
+Eqs. [](#eq:bs-alpha-beta) are not the general solution of Eqs. [](#eq:bs-alpha-beta-general).
 ````
 
 #### Two-mode shear
@@ -229,10 +229,9 @@ b & 2 a & 0 & 1
 
 ### Single mode gates
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.Measurement`
+#### `mqc3.circuit.ops.intrinsic.Measurement`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`
@@ -241,13 +240,12 @@ b & 2 a & 0 & 1
 ```
 
 ```{attention}
-When converted to the machinery representation, the setting is that feedforward is not performed immediately after this operation. If feedforward is required, either {py:class}`mqc3.graph.ops.Initialization` in graph representation should be used instead, or the feedforward matrices {py:attr}`mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_1` and {py:attr}`mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_n` in the machinery representation must be manually set after the conversion.
+When converted to the machinery representation, the setting is that feedforward is not performed immediately after this operation. If feedforward is required, either `mqc3.graph.ops.Initialization` in graph representation should be used instead, or the feedforward matrices `mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_1` and `mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_n` in the machinery representation must be manually set after the conversion.
 ```
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.Displacement`
+#### `mqc3.circuit.ops.intrinsic.Displacement`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`x`, {math}`p`
@@ -255,10 +253,9 @@ When converted to the machinery representation, the setting is that feedforward 
     - {math}`D\left(x, p\right)`
 ```
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.PhaseRotation`
+#### `mqc3.circuit.ops.intrinsic.PhaseRotation`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\phi`
@@ -266,10 +263,9 @@ When converted to the machinery representation, the setting is that feedforward 
     - {math}`R(\phi)`
 ```
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.Squeezing`
+#### `mqc3.circuit.ops.intrinsic.Squeezing`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`
@@ -277,10 +273,9 @@ When converted to the machinery representation, the setting is that feedforward 
     - {math}`R\left(-\frac{\pi}{2}\right) S_{\text{V}}(\cot \theta)`
 ```
 
-#### {py:class}`mqc3.circuit.ops.std.Squeezing`
+#### `mqc3.circuit.ops.std.Squeezing`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`r`
@@ -290,10 +285,9 @@ When converted to the machinery representation, the setting is that feedforward 
 
 Implemented as {math}`R(0) S(r) R(0)` using {ref}`sec:gate-circuit-arbitrary`.
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.Squeezing45`
+#### `mqc3.circuit.ops.intrinsic.Squeezing45`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`
@@ -301,10 +295,9 @@ Implemented as {math}`R(0) S(r) R(0)` using {ref}`sec:gate-circuit-arbitrary`.
     - {math}`R\left(-\frac{\pi}{4}\right) S_{\text{V}}(\cot \theta) R\left(\frac{\pi}{4}\right)`
 ```
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.ShearXInvariant`
+#### `mqc3.circuit.ops.intrinsic.ShearXInvariant`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\kappa`
@@ -312,10 +305,9 @@ Implemented as {math}`R(0) S(r) R(0)` using {ref}`sec:gate-circuit-arbitrary`.
     - {math}`P(\kappa)`
 ```
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.ShearPInvariant`
+#### `mqc3.circuit.ops.intrinsic.ShearPInvariant`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\eta`
@@ -325,10 +317,9 @@ Implemented as {math}`R(0) S(r) R(0)` using {ref}`sec:gate-circuit-arbitrary`.
 
 (sec:gate-circuit-arbitrary)=
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.Arbitrary`
+#### `mqc3.circuit.ops.intrinsic.Arbitrary`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\alpha`, {math}`\beta`, {math}`\lambda`
@@ -338,10 +329,9 @@ Implemented as {math}`R(0) S(r) R(0)` using {ref}`sec:gate-circuit-arbitrary`.
 
 ### Two mode gates
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.BeamSplitter`
+#### `mqc3.circuit.ops.intrinsic.BeamSplitter`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\sqrt{R}`, {math}`\theta_{\text{rel}}`
@@ -351,10 +341,9 @@ Implemented as {math}`R(0) S(r) R(0)` using {ref}`sec:gate-circuit-arbitrary`.
 
 (sec:gate-circuit-std-bs)=
 
-#### {py:class}`mqc3.circuit.ops.std.BeamSplitter`
+#### `mqc3.circuit.ops.std.BeamSplitter`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`, {math}`\phi`
@@ -397,10 +386,9 @@ R_{12} \left(\pi-\theta-\phi, \frac{\pi}{2}-\theta\right) Man\left(0, \frac{\pi}
 The equation manipulation is shown in {ref}`sec:std-bs-derivation`.
 ```
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.ControlledZ`
+#### `mqc3.circuit.ops.intrinsic.ControlledZ`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`g`
@@ -408,10 +396,9 @@ The equation manipulation is shown in {ref}`sec:std-bs-derivation`.
     - {math}`C_Z(g)`
 ```
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.TwoModeShear`
+#### `mqc3.circuit.ops.intrinsic.TwoModeShear`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`a`, {math}`b`
@@ -421,10 +408,9 @@ The equation manipulation is shown in {ref}`sec:std-bs-derivation`.
 
 (sec:gate-circuit-manual)=
 
-#### {py:class}`mqc3.circuit.ops.intrinsic.Manual`
+#### `mqc3.circuit.ops.intrinsic.Manual`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta_a`, {math}`\theta_b`, {math}`\theta_c`, {math}`\theta_d`
@@ -441,10 +427,9 @@ They are omitted for the swap case, as swapping the input modes within each macr
 
 ### Single mode gates
 
-#### {py:class}`~mqc3.graph.ops.Measurement`
+#### `Measurement`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`
@@ -455,13 +440,12 @@ They are omitted for the swap case, as swapping the input modes within each macr
 ```
 
 ```{attention}
-When converted to the machinery representation, the setting is that feedforward is not performed immediately after this operation. If feedforward is required, either {py:class}`mqc3.graph.ops.Initialization` should be used instead, or the feedforward matrices {py:attr}`mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_1` and {py:attr}`mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_n` in the machinery representation must be manually set after the conversion.
+When converted to the machinery representation, the setting is that feedforward is not performed immediately after this operation. If feedforward is required, either `mqc3.graph.ops.Initialization` should be used instead, or the feedforward matrices `mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_1` and `mqc3.machinery.MachineryRepr.ff_coeff_matrix_k_plus_n` in the machinery representation must be manually set after the conversion.
 ```
 
-#### {py:class}`~mqc3.graph.ops.Initialization`
+#### `Initialization`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`
@@ -473,10 +457,9 @@ When converted to the machinery representation, the setting is that feedforward 
 
 (sec:gate-graph-repr-wiring)=
 
-#### {py:class}`~mqc3.graph.Wiring`
+#### `Wiring`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     -
@@ -488,10 +471,9 @@ When converted to the machinery representation, the setting is that feedforward 
 
 (sec:gate-graph-repr-rotation)=
 
-#### {py:class}`~mqc3.graph.ops.PhaseRotation`
+#### `PhaseRotation`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\phi`
@@ -503,10 +485,9 @@ When converted to the machinery representation, the setting is that feedforward 
 
 (sec:gate-graph-repr-squeezing)=
 
-#### {py:class}`~mqc3.graph.ops.Squeezing`
+#### `Squeezing`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`
@@ -518,10 +499,9 @@ When converted to the machinery representation, the setting is that feedforward 
 
 (sec:gate-graph-repr-squeezing45)=
 
-#### {py:class}`~mqc3.graph.ops.Squeezing45`
+#### `Squeezing45`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta`
@@ -533,10 +513,9 @@ When converted to the machinery representation, the setting is that feedforward 
 
 (sec:gate-graph-repr-shear-x-inv)=
 
-#### {py:class}`~mqc3.graph.ops.ShearXInvariant`
+#### `ShearXInvariant`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\kappa`
@@ -548,10 +527,9 @@ When converted to the machinery representation, the setting is that feedforward 
 
 (sec:gate-graph-repr-shear-p-inv)=
 
-#### {py:class}`~mqc3.graph.ops.ShearPInvariant`
+#### `ShearPInvariant`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\eta`
@@ -575,10 +553,9 @@ Graphs of the {math}`\operatorname{arccot}` function. The left side has a range 
 
 (sec:gate-graph-repr-arbitrary)=
 
-#### {py:class}`~mqc3.graph.ops.Arbitrary`
+#### `Arbitrary`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\alpha`, {math}`\beta`, {math}`\lambda`
@@ -594,10 +571,9 @@ Graphs of the {math}`\operatorname{arccot}` function. The left side has a range 
 
 (sec:gate-graph-repr-bs)=
 
-#### {py:class}`~mqc3.graph.ops.BeamSplitter`
+#### `BeamSplitter`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\sqrt{R}`, {math}`\theta_{\text{rel}}`
@@ -609,10 +585,9 @@ Graphs of the {math}`\operatorname{arccot}` function. The left side has a range 
 
 (sec:gate-graph-repr-cz)=
 
-#### {py:class}`~mqc3.graph.ops.ControlledZ`
+#### `ControlledZ`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`g`
@@ -624,10 +599,9 @@ Graphs of the {math}`\operatorname{arccot}` function. The left side has a range 
 
 (sec:gate-graph-repr-2mode-shear)=
 
-#### {py:class}`~mqc3.graph.ops.TwoModeShear`
+#### `TwoModeShear`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`a`, {math}`b`
@@ -639,10 +613,9 @@ Graphs of the {math}`\operatorname{arccot}` function. The left side has a range 
 
 (sec:gate-graph-repr-manual)=
 
-#### {py:class}`~mqc3.graph.ops.Manual`
+#### `Manual`
 
 ```{list-table}
-:stub-columns: 1
 
 *   - Parameters
     - {math}`\theta_a`, {math}`\theta_b`, {math}`\theta_c`, {math}`\theta_d`

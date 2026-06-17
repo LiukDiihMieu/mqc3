@@ -12,6 +12,8 @@ build/
 # Documentation build artifacts
 docs/source/reference/
 docs/source/mqc3*.png
+docs/source/_build/
+docs/build/
 
 # Environments
 .env
