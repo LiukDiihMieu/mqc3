@@ -91,6 +91,34 @@ sphinx-apidoc -e -M -f -o source/reference/ ../src/mqc3/
 make html            # output in docs/build/html
 ```
 
+### Re-adding the API Reference under Jupyter Book 2 (research notes)
+
+As of mid-2026 there is **no mature native way** to auto-generate a Python API
+reference in Jupyter Book 2 / mystmd. The mystmd engine is Node-based and does
+**not** run Sphinx, so the JB1-era advice ("add `sphinx.ext.autodoc` to the
+config") does not apply here. Native support is still being tracked upstream
+(mystmd issue #1259) and is not first-class yet.
+
+Practical options when the API Reference is wanted again:
+
+1. **Separate Sphinx sub-build (recommended).** Keep `conf.py` and build only
+   the API pages with Sphinx, publishing them under a sub-path (e.g. `/api`),
+   and link to them from the Jupyter Book site (plain links or intersphinx).
+   Prefer [`sphinx-autodoc2`](https://myst-parser.readthedocs.io/en/latest/syntax/code_and_apis.html)
+   over classic `sphinx.ext.autodoc`: it analyses the source **statically**
+   (no need to import the package or install torch), supports MyST docstrings,
+   and offers `auto_mode` (whole-package pages) plus the `{autodoc2-object}`
+   directive with `render_plugin = "myst"`.
+2. **Wait for native mystmd support** — track
+   [mystmd#1259](https://github.com/jupyter-book/mystmd/issues/1259); collapse
+   to a single build once it lands.
+3. **Standalone generators** (`pdoc`, `mkdocstrings`) can render an API site
+   from docstrings, but they do not integrate with the Jupyter Book build.
+
+References: mystmd#1259; MyST Parser "Source code and APIs"
+(<https://myst-parser.readthedocs.io/en/latest/syntax/code_and_apis.html>);
+Jupyter Book FAQ (<https://jupyterbook.org/latest/resources/faq/>).
+
 ## Project layout
 
 ```text
