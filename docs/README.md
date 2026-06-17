@@ -27,14 +27,17 @@ notebook, or pair it back to `.ipynb` with `jupytext --to ipynb <file>.md`.
 
 ## Building the documentation
 
-1. Install the SDK (the docs execute against it), Jupyter Book and jupytext:
+1. In a Python environment with the SDK installed (the docs execute against
+   it), add Jupyter Book and jupytext:
 
    ```sh
    uv pip install torch --index-url https://download.pytorch.org/whl/cpu
    uv pip install ".[torch,dev]"
-   pip install jupyter-book jupytext
+   uv pip install jupyter-book jupytext
    ```
 
+   The pages execute against the default `python3` kernel, i.e. the
+   interpreter of this environment — no extra kernel registration is needed.
    On its first run, Jupyter Book bootstraps a bundled Node environment
    (via `nodeenv`), so the first build needs network access.
 
@@ -45,42 +48,28 @@ notebook, or pair it back to `.ipynb` with `jupytext --to ipynb <file>.md`.
    ./build.sh
    ```
 
-   `build.sh` starts a local Jupyter server, runs the build with `--execute`
-   (the `.md` notebooks store no outputs, so they are executed to regenerate
-   figures and results), then stops the server. Extra arguments are passed
-   through to `jupyter-book`.
+   The `.md` notebooks store no outputs, so the build executes them to
+   regenerate figures and results. `build.sh` is a thin wrapper that runs
+   `jupyter-book build --html --execute --ci`; any arguments you pass replace
+   that default and are forwarded to `jupyter-book`.
 
-3. View or live-preview the site:
-
-   ```sh
-   ./build.sh serve             # serve the built _build/html (http://localhost:8080)
-   ./build.sh start --execute   # live preview with hot reload + executed outputs
-   ```
-
-   Without `--execute`, pages render with **no** code-cell outputs (the `.md`
-   sources do not store outputs); use `--execute` or the static `./build.sh`.
-
-   Before opening a PR (or in CI), validate the build including links:
+3. Live-preview, or validate links before opening a PR:
 
    ```sh
-   ./build.sh check   # build + execute + --check-links --strict
+   ./build.sh start --execute                                 # hot-reload preview
+   ./build.sh build --html --execute --ci --check-links --strict   # link-checked
    ```
 
-   A plain build silently keeps unresolved links; `--check-links` is required
-   to catch dead internal/external links (and `--strict` makes them fail).
+   `--check-links --strict` is what catches (and fails on) dead internal or
+   external links; a plain build silently keeps them.
 
-   The pages execute against the **`mqc3`** Jupyter kernel
-   (`kernelspec: mqc3` in each file's front matter), which points at the
-   `mqc3` conda environment. Register it once with:
-
-   ```sh
-   python -m ipykernel install --user --name mqc3 --display-name mqc3
-   ```
-
-   > **Why `build.sh` runs its own Jupyter server:** mystmd's self-spawned
-   > execution server does not start reliably with the ipykernel version in
-   > this environment. `build.sh` works around that by launching a Jupyter
-   > server and pointing mystmd at it via `JUPYTER_BASE_URL` / `JUPYTER_TOKEN`.
+   > **Why `build.sh` wraps `jupyter-book` with its own Jupyter server:**
+   > with `--execute`, mystmd is supposed to spawn its own Jupyter server, but
+   > in some environments it spawns one it then cannot connect to — the build
+   > fails with `🪐 Jupyter server did not respond` and leaks the server
+   > process. `build.sh` sidesteps this by starting a Jupyter server itself and
+   > pointing mystmd at it via `JUPYTER_BASE_URL` / `JUPYTER_TOKEN`. If a plain
+   > `jupyter-book build --html --execute` works for you, you don't need it.
 
 ## API Reference (optional, Sphinx-based)
 

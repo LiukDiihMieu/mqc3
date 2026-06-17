@@ -6,9 +6,9 @@ jupytext:
     format_version: 4.0.0
     jupytext_version: 1.16.4
 kernelspec:
-  display_name: mqc3
+  display_name: python3
   language: python
-  name: mqc3
+  name: python3
 ---
 
 # Installation

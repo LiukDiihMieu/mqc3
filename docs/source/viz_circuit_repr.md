@@ -6,9 +6,9 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.19.3
 kernelspec:
-  name: mqc3
+  name: python3
   language: python
-  display_name: mqc3
+  display_name: python3
 ---
 
 # Visualizing Circuit Representation
