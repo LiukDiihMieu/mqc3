@@ -67,12 +67,12 @@ circuit
 
 ## Creating a client
 
-Create a local `SimulatorClient` and select a simulator backend.
+Create a local `SimulatorClient`.
 
-The `"torch"` backend is a forward-only Gaussian simulator implemented with PyTorch. It supports single-peak Gaussian states, Gaussian operations, homodyne measurements, and feedforward. Use `dtype="float64"` for the numerical-stability baseline; `float32` is also available.
+The simulator is a forward-only Gaussian backend implemented with PyTorch. It supports single-peak Gaussian states, Gaussian operations, homodyne measurements, and feedforward. Use `dtype="float64"` for the numerical-stability baseline; `float32` is also available.
 
 ```{code-cell}
-client = SimulatorClient(n_shots=1000, backend="torch", dtype="float64", seed=1234)
+client = SimulatorClient(n_shots=1000, dtype="float64", seed=1234)
 ```
 
 ## Simulating the circuit

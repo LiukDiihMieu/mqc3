@@ -7,8 +7,7 @@ quantum computing. It provides tools for constructing continuous-variable
 quantum programs and running circuit representations on local simulators.
 
 The forward-only PyTorch Gaussian backend supports single-peak Gaussian states,
-Gaussian operations, homodyne measurements, and feedforward. Strawberry Fields
-is retained as a legacy reference backend.
+Gaussian operations, homodyne measurements, and feedforward.
 
 ## GET STARTED
 

@@ -33,8 +33,10 @@ python3 -m pip install <path/to/sdk>
 ```
 
 ````{note}
-By default, only a minimal set of features is installed (e.g., visualization may be unavailable).  
-To enable optional features, use extras:
+PyTorch, the simulator backend, is a core dependency and is installed
+automatically. By default only a minimal set of features is installed beyond it
+(e.g., visualization may be unavailable). To enable optional features, use
+extras:
 
 - **All optional features**
   ```sh
@@ -45,55 +47,27 @@ To enable optional features, use extras:
   ```sh
   python3 -m pip install <path/to/sdk>[dev]
   ```
-
-- **StrawberryFields-based simulator** (`[sf]`) — **Python 3.10–3.12 only**
-  ```sh
-  # choose one of 3.10 / 3.11 / 3.12
-  python3.12 -m pip install <path/to/sdk>[sf]
-  ```
-
-- **PyTorch Gaussian simulator** (`[torch]`) — **Python 3.10–3.13**
-  ```sh
-  uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-  uv pip install <path/to/sdk>[torch]
-  ```
-
-You can combine extras as needed:
-
-- Simulator + all features (Python 3.10–3.12)
-  ```sh
-  python3.12 -m pip install <path/to/sdk>[sf,all]
-  ```
-
-- Simulator + development tools (Python 3.10–3.12)
-  ```sh
-  python3.12 -m pip install <path/to/sdk>[sf,dev]
-  ```
 ````
 
-````{warning}
-The **`[sf]`** extra is **not supported on Python 3.13**.  
-It relies on a dependency stack that requires `scipy < 1.14`, for which prebuilt wheels are not available on Python 3.13.  
-Use Python **3.10–3.12** when installing `[sf]`.
+````{note}
+By default `pip` installs the standard PyTorch build, which may pull large CUDA
+wheels. For a CPU-only setup, install the PyTorch CPU wheel first:
+
+```sh
+uv pip install torch --index-url https://download.pytorch.org/whl/cpu
+uv pip install <path/to/sdk>
+```
 ````
 
-**Compatibility matrix**
+## Configuring the simulator
 
-| Extra | 3.10 | 3.11 | 3.12 | 3.13 |
-|------:|:----:|:----:|:----:|:----:|
-| core  |  ✓   |  ✓   |  ✓   |  ✓   |
-| `[sf]`|  ✓   |  ✓   |  ✓   |  ✗   |
-| `[torch]` | ✓ | ✓ | ✓ | ✓ |
-
-## Selecting a simulator backend
-
-`SimulatorClient` runs locally. Select the PyTorch backend and its internal
-precision when constructing the client:
+`SimulatorClient` runs locally on the PyTorch Gaussian backend. Choose its
+internal floating-point precision when constructing the client:
 
 ```{code-cell} python
 from mqc3.client import SimulatorClient
 
-client = SimulatorClient(backend="torch", dtype="float64", seed=1234)
+client = SimulatorClient(dtype="float64", seed=1234)
 ```
 
 The PyTorch backend is a forward-only Gaussian circuit simulator. It currently

@@ -110,19 +110,16 @@ make_wigner_figure(state=x_squeezed_mode, xvec=linspace(-10, 10, 401), pvec=lins
 
 ## Configuring client
 
-Create a local `SimulatorClient` and select a simulator backend.
-
-Two backends are available:
-
-- `backend="torch"`: the forward-only PyTorch Gaussian engine. It supports single-peak Gaussian initial states, Gaussian operations, homodyne measurements, and feedforward.
-- `backend="sf"`: the legacy Strawberry Fields reference backend.
+Create a local `SimulatorClient`. It runs on the forward-only PyTorch Gaussian
+engine, which supports single-peak Gaussian initial states, Gaussian operations,
+homodyne measurements, and feedforward.
 
 The PyTorch backend defaults to `dtype="float64"` for numerical stability. Use `dtype="float32"` for lower-precision experiments. A seed makes homodyne samples reproducible.
 
 ```{code-cell}
 from mqc3.client import SimulatorClient, SimulatorClientResult
 
-client = SimulatorClient(backend="torch", dtype="float64", seed=1234)
+client = SimulatorClient(dtype="float64", seed=1234)
 ```
 
 The simulator runs synchronously on the local machine. Configure the number of independent circuit executions with `n_shots` and choose which final states to retain with `state_save_policy`.

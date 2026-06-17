@@ -32,7 +32,7 @@ notebook, or pair it back to `.ipynb` with `jupytext --to ipynb <file>.md`.
 
    ```sh
    uv pip install torch --index-url https://download.pytorch.org/whl/cpu
-   uv pip install ".[torch,dev]"
+   uv pip install ".[dev]"
    uv pip install jupyter-book jupytext
    ```
 
