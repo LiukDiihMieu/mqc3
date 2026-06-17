@@ -1,0 +1,57 @@
+# Jupyter Book 2 / MyST-MD configuration for the MQC-mini documentation.
+# Build with:  jupyter-book build .        (run from this directory)
+# Preview with: jupyter-book start .
+#
+# NOTE: the auto-generated Python API Reference (reference/*.rst, produced by
+# sphinx-apidoc + Sphinx autodoc) is intentionally NOT part of this build.
+# The Sphinx setup (conf.py, Makefile, docs/README.md) is kept in place so the
+# API Reference can be re-added later, either via the legacy Sphinx build or a
+# future MyST-MD API-docs approach.
+version: 1
+
+project:
+  title: MQC-mini Documentation
+  authors:
+    - name: RIKEN
+      collaboration: true
+  copyright: "2025 RIKEN"
+  bibliography:
+    - references.bib
+  # numfig=True equivalent: number figures, equations and tables.
+  numbering:
+    figure:
+      enabled: true
+    equation:
+      enabled: true
+    table:
+      enabled: true
+  # Files/globs that are not part of the JB2 build.
+  exclude:
+    - reference/**
+    - "**/.ipynb_checkpoints/**"
+  toc:
+    - file: index.md
+    - title: GET STARTED
+      children:
+        - file: installation.md
+        - file: quickstart.md
+    - title: BASIC
+      children:
+        - file: circuit_repr.md
+        - file: graph_repr.md
+        - file: machinery_repr.md
+        - file: feedforward.md
+        - file: simulation.md
+    - title: ADVANCED
+      children:
+        - file: viz_circuit_repr.md
+        - file: viz_graph_repr.md
+        - file: viz_machinery_repr.md
+    - title: THEORY
+      children:
+        - file: gates.md
+        - file: theory.md
+        - file: derivation.md
+
+site:
+  template: book-theme
