@@ -28,6 +28,10 @@ jobs:
           python -m pip install jupyter-book jupytext
 
       - name: Build documentation with Jupyter Book
+        # GitHub Pages serves this project site under /<repo>/, so MyST must
+        # prefix every asset/link with that base path (leading slash, no trailing).
+        env:
+          BASE_URL: /${{ github.event.repository.name }}
         run: |
           cd docs/source
           ./build.sh
