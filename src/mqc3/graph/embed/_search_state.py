@@ -531,44 +531,44 @@ class SearchState:
         ):
             return
 
-        # up already prepared
+        # if a target sits on the up-rail but is the lower one (the other target is above it),
+        # swap it down to the left rail so that both targets end up on the left
         if self._up in {target_mode1, target_mode2}:
             other_mode = target_mode2 if self._up == target_mode1 else target_mode1
             target_other_left_index = self.search_mode_on_left(other_mode)
             if target_other_left_index is None:
                 msg = f"{other_mode} is not found."
                 raise RuntimeError(msg)
-            if self.get_coord(target_other_left_index)[0] >= self.get_coord(self.index)[0]:
-                # the other mode comes later: just advance to there and done
-                self.insert_through(target_other_left_index - self.index)
-                return
-            # (else) the other mode comes before, swap target in up to left
+            if self.get_coord(target_other_left_index)[0] < self.get_coord(self.index)[0]:
+                # the other mode comes before, swap target in up to left
+                self.insert_swap()
+
+        # if both targets are on the left, lift the upper one (smaller row) onto the up-rail
+        if self._up not in {target_mode1, target_mode2}:
+            target_mode1_left_index = self.search_mode_on_left(target_mode1)
+            if target_mode1_left_index is None:
+                msg = f"{target_mode1} is not found."
+                raise RuntimeError(msg)
+
+            target_mode2_left_index = self.search_mode_on_left(target_mode2)
+            if target_mode2_left_index is None:
+                msg = f"{target_mode2} is not found."
+                raise RuntimeError(msg)
+
+            # almost the same as using _mode_pos? duplicated.
+            target_mode1_row = self.get_coord(target_mode1_left_index)[0]
+            target_mode2_row = self.get_coord(target_mode2_left_index)[0]
+            upper_index = target_mode1_left_index if target_mode1_row < target_mode2_row else target_mode2_left_index
+            self.insert_through(upper_index - self.index, without_leap=True)  # advance to the swap point
             self.insert_swap()
 
-        # both target modes in left from now on
-        target_mode1_left_index = self.search_mode_on_left(target_mode1)
-        if target_mode1_left_index is None:
-            msg = f"{target_mode1} is not found."
+        # one target is now on the up-rail and is the upper one; advance until the other target appears on the left
+        other_mode = target_mode2 if self._up == target_mode1 else target_mode1
+        target_other_left_index = self.search_mode_on_left(other_mode)
+        if target_other_left_index is None:
+            msg = f"{other_mode} is not found."
             raise RuntimeError(msg)
-
-        target_mode2_left_index = self.search_mode_on_left(target_mode2)
-        if target_mode2_left_index is None:
-            msg = f"{target_mode2} is not found."
-            raise RuntimeError(msg)
-
-        # almost the same as using _mode_pos? duplicated.
-        target_mode1_row = self.get_coord(target_mode1_left_index)[0]
-        target_mode2_row = self.get_coord(target_mode2_left_index)[0]
-        if target_mode1_row < target_mode2_row:
-            upper_index, lower_index = target_mode1_left_index, target_mode2_left_index
-        else:
-            upper_index, lower_index = target_mode2_left_index, target_mode1_left_index
-        # if lower_index is larger, okay. else, move it to the next column.
-        placement_index = lower_index + (self.n_local_macronodes if lower_index < upper_index else 0)
-
-        self.insert_through(upper_index - self.index, without_leap=True)  # advance to the swap point
-        self.insert_swap()
-        self.insert_through(placement_index - self.index)  # advance to the final placement macronode
+        self.insert_through(target_other_left_index - self.index)  # advance to the final placement macronode
 
     def copy(self) -> SearchState:
         """Copy the search state.
