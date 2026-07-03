@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class SearchState:
     __slots__ = [
         "_left",
-        "_mode_pos",
+        "_mode_row",
         "_op_pos_dict",
         "_swap_pos_set",
         "_up",
@@ -39,10 +39,10 @@ class SearchState:
             settings (GraphEmbedConfig): The settings of embedding.
 
         Attributes:
-            _mode_pos (dict[int, int]): Current position of a mode.
-                                         - If `_left[h] == mode`: h
-                                         - If `_up == mode` : -1
-                                         - Otherwise : None
+            _mode_row (dict[int, int]): The rail position of each mode currently in the frontier.
+                                         - If the mode is on the left rail (`_left[h] == mode`): its row `h`.
+                                         - If the mode is on the up rail (`_up == mode`): `-1` (a sentinel, not a row).
+                                         - If the mode is not in the frontier: the key is absent.
         """
         if dep_dag is None:
             return
@@ -66,7 +66,7 @@ class SearchState:
         # Mode
         self._up = BLANK_MODE
         self._left = [BLANK_MODE] * self.n_local_macronodes
-        self._mode_pos: dict[int, int] = {}
+        self._mode_row: dict[int, int] = {}
 
     def get_left_mode(self, index: int) -> int:
         """Get the left mode of the `index`-th macronode.
@@ -108,11 +108,11 @@ class SearchState:
         Args:
             mode (int): Mode.
 
-        Raises:
-            RuntimeError: There is no macronode with the specified mode.
-
         Returns:
             int: Macronode index.
+
+        Raises:
+            RuntimeError: There is no macronode with the specified mode.
         """
         if self._up == mode:
             return self.index
@@ -133,10 +133,10 @@ class SearchState:
         Returns:
             int | None: Macronode index or None if not found.
         """
-        if mode != BLANK_MODE:  # normal mode, use _mode_pos to look up
-            if mode not in self._mode_pos or self._mode_pos[mode] == -1:
+        if mode != BLANK_MODE:  # normal mode, use _mode_row to look up
+            if mode not in self._mode_row or self._mode_row[mode] == -1:
                 return None
-            h = self._mode_pos[mode]
+            h = self._mode_row[mode]
             return self.index + (h - self.index) % self.n_local_macronodes
 
         # (else) blank mode, go over all rows from the current one
@@ -146,7 +146,7 @@ class SearchState:
         return None
 
     def blank_mode_count(self) -> int:
-        return self.n_local_macronodes + 1 - len(self._mode_pos)
+        return self.n_local_macronodes + 1 - len(self._mode_row)
 
     def calc_min_index_to_place_op(self, op_ind: int) -> int | None:
         """Calculate the minimum finish time of `op`.
@@ -189,11 +189,11 @@ class SearchState:
 
     def remove_current_modes(self) -> None:
         """Remove modes on current macronode from SearchState."""
-        self._mode_pos.pop(self._up, None)
+        self._mode_row.pop(self._up, None)
         self._up = BLANK_MODE
 
         h, _ = self.get_coord(self.index)
-        self._mode_pos.pop(self._left[h], None)
+        self._mode_row.pop(self._left[h], None)
         self._left[h] = BLANK_MODE
 
     def insert_through(self, reps: int = 1, *, without_leap: bool = False) -> None:
@@ -226,9 +226,9 @@ class SearchState:
         h = self.get_coord(self.index)[0]
         self._up, self._left[h] = self._left[h], self._up
         if self._up != BLANK_MODE:
-            self._mode_pos[self._up] = -1
+            self._mode_row[self._up] = -1
         if self._left[h] != BLANK_MODE:
-            self._mode_pos[self._left[h]] = h
+            self._mode_row[self._left[h]] = h
 
         self.advance_index()
 
@@ -244,11 +244,11 @@ class SearchState:
         if op.initialized_modes[0] != BLANK_MODE:
             new_mode = op.initialized_modes[0]
             self._up = new_mode
-            self._mode_pos[new_mode] = -1
+            self._mode_row[new_mode] = -1
         if op.initialized_modes[1] != BLANK_MODE:
             new_mode = op.initialized_modes[1]
             self._left[h] = new_mode
-            self._mode_pos[new_mode] = h
+            self._mode_row[new_mode] = h
         self._op_pos_dict[op_ind] = self.get_coord(self.index)
         if swap_in_op:
             self.insert_swap()
@@ -555,7 +555,7 @@ class SearchState:
                 msg = f"{target_mode2} is not found."
                 raise RuntimeError(msg)
 
-            # almost the same as using _mode_pos? duplicated.
+            # almost the same as using _mode_row? duplicated.
             target_mode1_row = self.get_coord(target_mode1_left_index)[0]
             target_mode2_row = self.get_coord(target_mode2_left_index)[0]
             upper_index = target_mode1_left_index if target_mode1_row < target_mode2_row else target_mode2_left_index
@@ -579,7 +579,7 @@ class SearchState:
         copied = SearchState(None, GraphEmbedSettings(self.n_local_macronodes, self.feedforward_distance))
 
         copied._left = self._left.copy()
-        copied._mode_pos = self._mode_pos.copy()
+        copied._mode_row = self._mode_row.copy()
         copied._swap_pos_set = self._swap_pos_set.copy()
         copied._op_pos_dict = self._op_pos_dict.copy()
         copied._up = self._up
