@@ -349,6 +349,7 @@ class SearchState:
         """
         if not self.is_all_dependency_resolved(op_node_id):
             return None  # Some of dependencies are not resolved
+
         inf = 10**9
         min_index = -1
         max_index = inf
@@ -362,6 +363,7 @@ class SearchState:
             if p.variable.mode not in self.mode_to_measurement:
                 msg = "The mode of ModeMeasuredVariable does not match."
                 raise ValueError(msg)
+            # the measurement which provides the input of the feedforward parameter
             measurement_node_id = self.mode_to_measurement[p.variable.mode]
 
             # Check if the measurement for variable is already placed
@@ -376,6 +378,21 @@ class SearchState:
         return (min_index, max_index)
 
     def place_operation(self, op_node_id: int, *, swap_in_op: bool) -> None:
+        """Place the operation into the current state, advancing the frontier as needed.
+
+        Advances the macronode frontier (inserting `through`s) until the earliest
+        geometrically feasible index satisfies the feedforward lower bound, verifies it
+        still fits within the feedforward upper bound, then arranges the input modes
+        (`prepare_*`) and records the operation (`insert_*`).
+
+        Args:
+            op_node_id (int): The dependency-DAG node id of the operation to place.
+            swap_in_op (bool): Whether the swap operation is included in the operation.
+
+        Raises:
+            RuntimeError: The operation is already placed, cannot be placed in the current
+                state, or cannot fit within its feedforward window.
+        """
         if op_node_id in self._op_pos_dict:
             msg = "This operation has been already placed"
             raise RuntimeError(msg)
@@ -384,7 +401,10 @@ class SearchState:
             msg = "This operation is not placeable currently."
             raise RuntimeError(msg)
         min_index, max_index = placeable_range
+
+        # through until min_index
         while True:
+            # start from theoretical lower bound
             placement_index = self.calc_min_index_to_place_op(op_node_id)
             if placement_index is None:
                 msg = "This operation is not placeable currently."
@@ -408,19 +428,34 @@ class SearchState:
             self.insert_two_mode_operation(op_node_id, swap_in_op=swap_in_op)
 
     def generate_next_states(self) -> Generator[SearchState, None, None]:
-        for op_node_id in self.dep_dag.dag.nodes:
-            if self.is_already_placed(op_node_id) or not self.is_all_dependency_resolved(op_node_id):
-                continue
+        """Yield the states reachable by placing one more operation.
+
+        For each operation whose dependencies are resolved and that is not yet placed,
+        yields a copy of this state with that operation placed - once without and once
+        with a in-place swap (`swap_in_op` False/True).
+
+        As an early prune, if any still-unplaced operation has already missed its
+        feedforward window (the current frontier index is past its latest allowed
+        placement index), this state can never be completed, so nothing is yielded.
+
+        Yields:
+            SearchState: A copy of this state with one more operation placed.
+        """
+        candidates = [
+            op_node_id
+            for op_node_id in self.dep_dag.dag.nodes
+            if not self.is_already_placed(op_node_id) and self.is_all_dependency_resolved(op_node_id)
+        ]
+
+        # Phase 1: if any candidate has already missed its feedforward window, this state is a
+        # dead end (that op can never be placed), so yield no successors.
+        for op_node_id in candidates:
             placeable_range = self.calc_placeable_range(op_node_id)
-            if placeable_range is None:
-                continue
-            _min_index, max_index = placeable_range
-            if self.index > max_index:  # conversion already failed
+            if placeable_range is not None and self.index > placeable_range[1]:
                 return
 
-        for op_node_id, swap_in_op in product(self.dep_dag.dag.nodes, [False, True]):
-            if self.is_already_placed(op_node_id) or not self.is_all_dependency_resolved(op_node_id):
-                continue
+        # Phase 2: otherwise branch out, placing each candidate once without and once with SWAP.
+        for op_node_id, swap_in_op in product(candidates, [False, True]):
             next_state = self.copy()
             next_state.place_operation(op_node_id, swap_in_op=swap_in_op)
             yield next_state
