@@ -149,12 +149,19 @@ class SearchState:
         return self.n_local_macronodes + 1 - len(self._mode_row)
 
     def calc_min_index_to_place_op(self, op_ind: int) -> int | None:
-        """Calculate the minimum finish time of `op`.
+        """Calculate the smallest macronode index at which `op` could be placed.
+
+        This is a lower bound given the current frontier (the theoretical earliest
+        position); the placement actually chosen by the `prepare_*` methods may be later.
 
         Returns:
-            int | None : Minimum finish time of `op`. If the op cannot be placed currently, returns None.
+            int | None: The smallest macronode index at which `op` could be placed,
+                or None if the op cannot be placed currently.
         """
-        if isinstance(self.dep_dag.dag.nodes[op_ind]["op"], gops.Initialization):
+        node = self.dep_dag.dag.nodes[op_ind]
+
+        # 1. initialization
+        if isinstance(node["op"], gops.Initialization):
             found_first_blank = False
             if self._up == BLANK_MODE:
                 found_first_blank = True
@@ -164,13 +171,16 @@ class SearchState:
                         return i
                     found_first_blank = True
             return None  # Two blank modes are required to place initialization.
-        modes = self.dep_dag.dag.nodes[op_ind]["modes"]
+        modes = node["modes"]
+
+        # 2. single-mode operation
         if len(modes) == 1:
             mode = modes[0]
             blank_index = self.search_mode(BLANK_MODE)
-            mode_index = self.search_mode(mode)
-            return max(blank_index, mode_index)
+            target_index = self.search_mode(mode)
+            return max(blank_index, target_index)
 
+        # 3. two-mode operation
         target_mode1, target_mode2 = modes
         target_mode1_index = self.search_mode(target_mode1)
         target_mode2_index = self.search_mode(target_mode2)
@@ -181,7 +191,9 @@ class SearchState:
             if target_mode1_row < target_mode2_row
             else (target_mode2_index, target_mode1_index)
         )
-        return lower_index + (self.n_local_macronodes if lower_index < upper_index else 0)
+        if lower_index < upper_index:
+            return lower_index + self.n_local_macronodes
+        return lower_index
 
     def advance_index(self) -> None:
         """Increment index and call functions."""
@@ -223,8 +235,11 @@ class SearchState:
             raise RuntimeError(msg)
         self._swap_pos_set.add(coord)
 
-        h = self.get_coord(self.index)[0]
+        h = coord[0]
+        # actual "SWAP" happens here
         self._up, self._left[h] = self._left[h], self._up
+
+        # update status
         if self._up != BLANK_MODE:
             self._mode_row[self._up] = -1
         if self._left[h] != BLANK_MODE:
@@ -240,7 +255,8 @@ class SearchState:
             swap_in_op (bool): Whether the swap operation is included in the operation.
         """
         op = self.dep_dag.dag.nodes[op_ind]["op"]
-        h = self.get_coord(self.index)[0]
+        coord = self.get_coord(self.index)
+        h = coord[0]
         if op.initialized_modes[0] != BLANK_MODE:
             new_mode = op.initialized_modes[0]
             self._up = new_mode
@@ -249,7 +265,7 @@ class SearchState:
             new_mode = op.initialized_modes[1]
             self._left[h] = new_mode
             self._mode_row[new_mode] = h
-        self._op_pos_dict[op_ind] = self.get_coord(self.index)
+        self._op_pos_dict[op_ind] = coord
         if swap_in_op:
             self.insert_swap()
         else:
@@ -268,7 +284,8 @@ class SearchState:
         left = self.get_left_mode(self.index)
         up = self._up
 
-        modes = self.dep_dag.dag.nodes[op_ind]["modes"]
+        node = self.dep_dag.dag.nodes[op_ind]
+        modes = node["modes"]
         if BLANK_MODE not in {left, up}:
             msg = "One of the input modes of the current macronode must be blank mode."
             raise RuntimeError(msg)
@@ -276,7 +293,7 @@ class SearchState:
             msg = "The input mode of the operation must match the non-blank mode of the macronode."
             raise RuntimeError(msg)
 
-        op = self.dep_dag.dag.nodes[op_ind]["op"]
+        op = node["op"]
         self._op_pos_dict[op_ind] = self.get_coord(self.index)
 
         # remove measured modes
@@ -304,7 +321,7 @@ class SearchState:
         up = self._up
 
         if modes[0] not in {left, up} or modes[1] not in {left, up}:
-            msg = "The first input mode of the operation must be the same as the left mode of the macronode."
+            msg = "Both input modes of the operation must match the macronode's input modes (left, up)."
             raise RuntimeError(msg)
 
         self._op_pos_dict[op_ind] = self.get_coord(self.index)
