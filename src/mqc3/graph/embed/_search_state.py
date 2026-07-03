@@ -117,14 +117,14 @@ class SearchState:
         if self._up == mode:
             return self.index
 
-        from_left = self.find_mode_from_left(mode)
+        from_left = self.search_mode_on_left(mode)
         if from_left is not None:
             return from_left
 
         msg = f"There is no mode: {mode}."
         raise RuntimeError(msg)
 
-    def find_mode_from_left(self, mode: int) -> int | None:
+    def search_mode_on_left(self, mode: int) -> int | None:
         """Get the index of the macronode, that the specified mode come from left, after the current macronode.
 
         Args:
@@ -133,11 +133,13 @@ class SearchState:
         Returns:
             int | None: Macronode index or None if not found.
         """
-        if mode != BLANK_MODE:
+        if mode != BLANK_MODE:  # normal mode, use _mode_pos to look up
             if mode not in self._mode_pos or self._mode_pos[mode] == -1:
                 return None
             h = self._mode_pos[mode]
             return self.index + (h - self.index) % self.n_local_macronodes
+
+        # (else) blank mode, go over all rows from the current one
         for i in range(self.index, self.index + self.n_local_macronodes):
             if self.get_left_mode(i) == mode:
                 return i
@@ -470,7 +472,7 @@ class SearchState:
             return
         if self._up != BLANK_MODE:
             self.insert_swap()
-        second_blank_index = self.find_mode_from_left(BLANK_MODE)
+        second_blank_index = self.search_mode_on_left(BLANK_MODE)
         if second_blank_index is None:
             msg = "Two blank nodes are required to place initialization."
             raise RuntimeError(msg)
@@ -480,31 +482,38 @@ class SearchState:
         """Use through or swap to create a macronode with input modes as (blank, target).
 
         Args:
-            target_mode (int): Mode used for operation.
+            target_mode (int): Mode used for operation. Must be a real (non-blank) mode.
 
         Raises:
+            ValueError: `target_mode` is the blank mode.
             RuntimeError: Mode is not found.
         """
+        if target_mode == BLANK_MODE:
+            msg = "`target_mode` must be a real (non-blank) mode."
+            raise ValueError(msg)
+
         blank_index = self.search_mode(BLANK_MODE)
-        mode_index = self.find_mode_from_left(target_mode)
+        target_left_index = self.search_mode_on_left(target_mode)  # if already in _up, returns None
 
-        if self._up != target_mode and self.get_left_mode(self.index) != target_mode and mode_index is None:
+        # target is neither on the up-rail nor the left-rail, i.e. not in the current frontier
+        if self._up != target_mode and target_left_index is None:
             msg = f"`target_mode` {target_mode} is not found."
             raise RuntimeError(msg)
 
+        # up occupied by another mode, perform SWAP when encounters the first blank or target
         if self._up not in {target_mode, BLANK_MODE}:
-            start_index = self.index
-            next_index = blank_index if mode_index is None else min(mode_index, blank_index)
-            self.insert_through(next_index - start_index, without_leap=True)
-            self.insert_swap()
+            next_index = min(target_left_index, blank_index)
+            self.insert_through(next_index - self.index, without_leap=True)
+            self.insert_swap()  # resulting blank or target in _up
 
+        # up should be occupied by target or BLANK now
         if self._up not in {target_mode, BLANK_MODE}:
             msg = f"`target_mode` {target_mode} is not found."
             raise RuntimeError(msg)
 
-        start_index = self.index
-        next_index = blank_index if mode_index is None else max(mode_index, blank_index)
-        self.insert_through(next_index - start_index)
+        # final case: up is already prepared into either blank or target, prepare left.
+        next_index = blank_index if target_left_index is None else max(target_left_index, blank_index)
+        self.insert_through(next_index - self.index)
 
     def prepare_two_mode_operation(self, target_mode1: int, target_mode2: int) -> None:
         """Place `through` or `swap` operations to make space for the target two-mode operation.
@@ -524,7 +533,7 @@ class SearchState:
 
         if self._up in {target_mode1, target_mode2}:
             other_mode = target_mode2 if self._up == target_mode1 else target_mode1
-            other_mode_index = self.find_mode_from_left(other_mode)
+            other_mode_index = self.search_mode_on_left(other_mode)
             if other_mode_index is None:
                 msg = f"{other_mode} is not found."
                 raise RuntimeError(msg)
@@ -533,12 +542,12 @@ class SearchState:
                 return
             self.insert_swap()
 
-        target_mode1_index = self.find_mode_from_left(target_mode1)
+        target_mode1_index = self.search_mode_on_left(target_mode1)
         if target_mode1_index is None:
             msg = f"{target_mode1} is not found."
             raise RuntimeError(msg)
 
-        target_mode2_index = self.find_mode_from_left(target_mode2)
+        target_mode2_index = self.search_mode_on_left(target_mode2)
         if target_mode2_index is None:
             msg = f"{target_mode2} is not found."
             raise RuntimeError(msg)
