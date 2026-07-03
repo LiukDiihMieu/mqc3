@@ -174,14 +174,14 @@ class SearchState:
         target_mode1, target_mode2 = modes
         target_mode1_index = self.search_mode(target_mode1)
         target_mode2_index = self.search_mode(target_mode2)
-        target_mode1_h = self.get_coord(target_mode1_index)[0]
-        target_mode2_h = self.get_coord(target_mode2_index)[0]
-        upper_mode_index, lower_mode_index = (
+        target_mode1_row = self.get_coord(target_mode1_index)[0]
+        target_mode2_row = self.get_coord(target_mode2_index)[0]
+        upper_index, lower_index = (
             (target_mode1_index, target_mode2_index)
-            if target_mode1_h < target_mode2_h
+            if target_mode1_row < target_mode2_row
             else (target_mode2_index, target_mode1_index)
         )
-        return lower_mode_index + (self.n_local_macronodes if lower_mode_index < upper_mode_index else 0)
+        return lower_index + (self.n_local_macronodes if lower_index < upper_index else 0)
 
     def advance_index(self) -> None:
         """Increment index and call functions."""
@@ -525,45 +525,50 @@ class SearchState:
         Raises:
             RuntimeError: The target two-mode operation cannot be placed.
         """
-        # Is already prepared
+        # both already prepared
         if (self._up == target_mode1 and self.get_left_mode(self.index) == target_mode2) or (
             self._up == target_mode2 and self.get_left_mode(self.index) == target_mode1
         ):
             return
 
+        # up already prepared
         if self._up in {target_mode1, target_mode2}:
             other_mode = target_mode2 if self._up == target_mode1 else target_mode1
-            other_mode_index = self.search_mode_on_left(other_mode)
-            if other_mode_index is None:
+            target_other_left_index = self.search_mode_on_left(other_mode)
+            if target_other_left_index is None:
                 msg = f"{other_mode} is not found."
                 raise RuntimeError(msg)
-            if self.get_coord(other_mode_index)[0] >= self.get_coord(self.index)[0]:
-                self.insert_through(other_mode_index - self.index)
+            if self.get_coord(target_other_left_index)[0] >= self.get_coord(self.index)[0]:
+                # the other mode comes later: just advance to there and done
+                self.insert_through(target_other_left_index - self.index)
                 return
+            # (else) the other mode comes before, swap target in up to left
             self.insert_swap()
 
-        target_mode1_index = self.search_mode_on_left(target_mode1)
-        if target_mode1_index is None:
+        # both target modes in left from now on
+        target_mode1_left_index = self.search_mode_on_left(target_mode1)
+        if target_mode1_left_index is None:
             msg = f"{target_mode1} is not found."
             raise RuntimeError(msg)
 
-        target_mode2_index = self.search_mode_on_left(target_mode2)
-        if target_mode2_index is None:
+        target_mode2_left_index = self.search_mode_on_left(target_mode2)
+        if target_mode2_left_index is None:
             msg = f"{target_mode2} is not found."
             raise RuntimeError(msg)
 
-        target_mode1_h = self.get_coord(target_mode1_index)[0]
-        target_mode2_h = self.get_coord(target_mode2_index)[0]
-        upper_mode_index, lower_mode_index = (
-            (target_mode1_index, target_mode2_index)
-            if target_mode1_h < target_mode2_h
-            else (target_mode2_index, target_mode1_index)
-        )
-        prepare_index = lower_mode_index + (self.n_local_macronodes if lower_mode_index < upper_mode_index else 0)
+        # almost the same as using _mode_pos? duplicated.
+        target_mode1_row = self.get_coord(target_mode1_left_index)[0]
+        target_mode2_row = self.get_coord(target_mode2_left_index)[0]
+        if target_mode1_row < target_mode2_row:
+            upper_index, lower_index = target_mode1_left_index, target_mode2_left_index
+        else:
+            upper_index, lower_index = target_mode2_left_index, target_mode1_left_index
+        # if lower_index is larger, okay. else, move it to the next column.
+        placement_index = lower_index + (self.n_local_macronodes if lower_index < upper_index else 0)
 
-        self.insert_through(upper_mode_index - self.index, without_leap=True)
+        self.insert_through(upper_index - self.index, without_leap=True)  # advance to the swap point
         self.insert_swap()
-        self.insert_through(prepare_index - self.index)
+        self.insert_through(placement_index - self.index)  # advance to the final placement macronode
 
     def copy(self) -> SearchState:
         """Copy the search state.
