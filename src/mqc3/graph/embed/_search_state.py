@@ -11,34 +11,10 @@ from mqc3.graph.embed.embed import GraphEmbedSettings
 from mqc3.graph.ops import ModeMeasuredVariable
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator
+    from collections.abc import Generator
 
     from mqc3.graph import Operation as GraphOp
     from mqc3.graph.embed.dep_dag import DependencyDAG
-
-
-def _apply_ignored_none(
-    a: int | None,
-    b: int | None,
-    func: Callable[[int, int], int],
-) -> int:
-    if a is not None and b is not None:
-        return func(a, b)
-    if a is None and b is not None:
-        return b
-    if a is not None and b is None:
-        return a
-
-    msg = "Both `a` and `b` are `None`."
-    raise RuntimeError(msg)
-
-
-def get_min_ignored_none(a: int | None, b: int | None) -> int:
-    return _apply_ignored_none(a, b, min)
-
-
-def get_max_ignored_none(a: int | None, b: int | None) -> int:
-    return _apply_ignored_none(a, b, max)
 
 
 class SearchState:
@@ -518,7 +494,7 @@ class SearchState:
 
         if self._up not in {target_mode, BLANK_MODE}:
             start_index = self.index
-            next_index = get_min_ignored_none(mode_index, blank_index)
+            next_index = blank_index if mode_index is None else min(mode_index, blank_index)
             self.insert_through(next_index - start_index, without_leap=True)
             self.insert_swap()
 
@@ -527,7 +503,7 @@ class SearchState:
             raise RuntimeError(msg)
 
         start_index = self.index
-        next_index = get_max_ignored_none(mode_index, blank_index)
+        next_index = blank_index if mode_index is None else max(mode_index, blank_index)
         self.insert_through(next_index - start_index)
 
     def prepare_two_mode_operation(self, target_mode1: int, target_mode2: int) -> None:
