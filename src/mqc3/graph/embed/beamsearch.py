@@ -35,22 +35,39 @@ class BeamSearchEmbedder(GraphEmbedder):
         """
         super().__init__(settings)
 
+    def _push_into_beam(self, search_nodes: list[list[SearchState]], state: SearchState) -> None:
+        """Insert `state` into the beam at its macronode index.
+
+        Grows `search_nodes` so the index exists, then keeps at most `beam_width` best
+        states in that beam (a min-heap ordered by `SearchState.evaluate`).
+
+        Args:
+            search_nodes (list[list[SearchState]]): Beams indexed by macronode index.
+            state (SearchState): The state to insert.
+        """
+        while len(search_nodes) <= state.index:
+            search_nodes.append([])
+        beam = search_nodes[state.index]
+        if len(beam) < self._settings.beam_width:
+            heappush(beam, state)  # only add
+        else:
+            heappushpop(beam, state)  # remove the worst one and then add
+
     def _embed_impl(self, dep_dag: DependencyDAG) -> GraphEmbedResult:
         """Embed a Dependency DAG into a graph representation with beam search strategy.
 
         Args:
             dep_dag: Dependency DAG to embed.
 
-        Raises:
-            RuntimeError: If the embedding fails.
-
         Returns:
             GraphEmbedResult: Result of the embedding.
+
+        Raises:
+            RuntimeError: If the embedding fails.
         """
-        search_nodes: list[list[SearchState]] = [[]]
-        search_nodes[0].append(SearchState(dep_dag, self._settings))
-        cutoffs: list[int] = [0]
-        length_of_search_nodes = 1
+        # search_nodes[i] is the beam for macronode index i.
+        # search_nodes[i] has length "beam_width"
+        search_nodes: list[list[SearchState]] = [[SearchState(dep_dag, self._settings)]]
         next_macronode_index = 0
 
         while True:
@@ -58,16 +75,8 @@ class BeamSearchEmbedder(GraphEmbedder):
                 if bs_state.is_all_done():
                     return GraphEmbedResult(graph=bs_state.output_graph())
                 for next_state in bs_state.generate_next_states():
-                    if next_state.index >= length_of_search_nodes:
-                        search_nodes.extend([] for _ in range(length_of_search_nodes, next_state.index + 1))
-                        cutoffs.extend(0 for _ in range(length_of_search_nodes, next_state.index + 1))
-                        length_of_search_nodes = next_state.index + 1
-                    next_heap = search_nodes[next_state.index]
-                    if len(next_heap) < self._settings.beam_width:
-                        heappush(next_heap, next_state)
-                    else:
-                        heappushpop(next_heap, next_state)
+                    self._push_into_beam(search_nodes, next_state)
             next_macronode_index += 1
-            if next_macronode_index == length_of_search_nodes:
+            if next_macronode_index == len(search_nodes):
                 msg = "Failed to convert the circuit to graph representation using beam search."
                 raise RuntimeError(msg)

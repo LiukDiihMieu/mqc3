@@ -502,10 +502,18 @@ class SearchState:
         return graph
 
     def evaluate(self) -> int:
-        """Return the evaluate value of current state (larger means better)."""
+        """Score this state for the search: the number of operations placed so far.
+
+        Larger is better (more progress toward a complete embedding). Both embedders use
+        this as their heuristic - the greedy embedder maximizes it directly, and beam search
+        keeps the highest-scoring states (via `__lt__`).
+
+        Returns:
+            int: The number of operations placed so far.
+        """
         return len(self._op_pos_dict)
 
-    def __lt__(self, other: SearchState) -> int:
+    def __lt__(self, other: SearchState) -> bool:
         return self.evaluate() < other.evaluate()
 
     def is_all_done(self) -> bool:

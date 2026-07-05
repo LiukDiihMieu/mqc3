@@ -47,6 +47,18 @@ class GreedyEmbedder(GraphEmbedder):
         return best_state
 
     def _embed_impl(self, dep_dag: DependencyDAG) -> GraphEmbedResult:
+        """Embed a dependency DAG into a graph representation with the greedy strategy.
+
+        Called by `GraphEmbedder.embed`. Starts from an empty search state and repeatedly
+        advances it one operation at a time, keeping only the single best successor at each
+        step (`_advance_state_greedily`), until every operation is placed.
+
+        Args:
+            dep_dag (DependencyDAG): The dependency DAG to embed.
+
+        Returns:
+            GraphEmbedResult: Result of the embedding.
+        """
         state = SearchState(dep_dag, self._settings)
         while not state.is_all_done():
             state = self._advance_state_greedily(state)
