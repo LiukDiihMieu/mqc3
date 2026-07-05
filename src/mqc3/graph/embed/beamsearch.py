@@ -67,16 +67,17 @@ class BeamSearchEmbedder(GraphEmbedder):
         """
         # search_nodes[i] is the beam for macronode index i.
         # search_nodes[i] has length "beam_width"
-        search_nodes: list[list[SearchState]] = [[SearchState(dep_dag, self._settings)]]
-        next_macronode_index = 0
 
-        while True:
-            for bs_state in search_nodes[next_macronode_index]:
+        # initial state: the one from the DAG, before placing any op.
+        search_nodes: list[list[SearchState]] = [[SearchState(dep_dag, self._settings)]]
+
+        # search_nodes grows while we iterate: _push_into_beam appends later buckets,
+        # and `for beam in search_nodes` visits those newly appended buckets too.
+        for beam in search_nodes:
+            for bs_state in beam:
                 if bs_state.is_all_done():
                     return GraphEmbedResult(graph=bs_state.output_graph())
                 for next_state in bs_state.generate_next_states():
                     self._push_into_beam(search_nodes, next_state)
-            next_macronode_index += 1
-            if next_macronode_index == len(search_nodes):
-                msg = "Failed to convert the circuit to graph representation using beam search."
-                raise RuntimeError(msg)
+        msg = "Failed to convert the circuit to graph representation using beam search."
+        raise RuntimeError(msg)
