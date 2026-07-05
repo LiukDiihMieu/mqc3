@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class SearchState:
     __slots__ = [
         "_left",
-        "_mode_pos",
+        "_mode_row",
         "_op_pos_dict",
         "_swap_pos_set",
         "_up",
@@ -39,10 +39,10 @@ class SearchState:
             settings (GraphEmbedConfig): The settings of embedding.
 
         Attributes:
-            _mode_pos (dict[int, int]): Current position of a mode.
-                                         - If `_left[h] == mode`: h
-                                         - If `_up == mode` : -1
-                                         - Otherwise : None
+            _mode_row (dict[int, int]): The rail position of each mode currently in the frontier.
+                                         - If the mode is on the left rail (`_left[h] == mode`): its row `h`.
+                                         - If the mode is on the up rail (`_up == mode`): `-1` (a sentinel, not a row).
+                                         - If the mode is not in the frontier: the key is absent.
         """
         if dep_dag is None:
             return
@@ -52,9 +52,9 @@ class SearchState:
         self.feedforward_distance = settings.feedforward_distance
         self.dep_dag = dep_dag
         self.mode_to_measurement: dict[int, int] = {}
-        for ind, node in self.dep_dag.dag.nodes.items():
-            if isinstance(node["op"], gops.Measurement):
-                self.mode_to_measurement[node["modes"][0]] = ind
+        for node_id, node_data in self.dep_dag.dag.nodes.items():
+            if isinstance(node_data["op"], gops.Measurement):
+                self.mode_to_measurement[node_data["modes"][0]] = node_id
 
         # Position of operations
         self._swap_pos_set: set[tuple[int, int]] = set()
@@ -66,7 +66,7 @@ class SearchState:
         # Mode
         self._up = BLANK_MODE
         self._left = [BLANK_MODE] * self.n_local_macronodes
-        self._mode_pos: dict[int, int] = {}
+        self._mode_row: dict[int, int] = {}
 
     def get_left_mode(self, index: int) -> int:
         """Get the left mode of the `index`-th macronode.
@@ -108,23 +108,23 @@ class SearchState:
         Args:
             mode (int): Mode.
 
-        Raises:
-            RuntimeError: There is no macronode with the specified mode.
-
         Returns:
             int: Macronode index.
+
+        Raises:
+            RuntimeError: There is no macronode with the specified mode.
         """
         if self._up == mode:
             return self.index
 
-        from_left = self.find_mode_from_left(mode)
+        from_left = self.search_mode_on_left(mode)
         if from_left is not None:
             return from_left
 
         msg = f"There is no mode: {mode}."
         raise RuntimeError(msg)
 
-    def find_mode_from_left(self, mode: int) -> int | None:
+    def search_mode_on_left(self, mode: int) -> int | None:
         """Get the index of the macronode, that the specified mode come from left, after the current macronode.
 
         Args:
@@ -133,26 +133,35 @@ class SearchState:
         Returns:
             int | None: Macronode index or None if not found.
         """
-        if mode != BLANK_MODE:
-            if mode not in self._mode_pos or self._mode_pos[mode] == -1:
+        if mode != BLANK_MODE:  # normal mode, use _mode_row to look up
+            if mode not in self._mode_row or self._mode_row[mode] == -1:
                 return None
-            h = self._mode_pos[mode]
+            h = self._mode_row[mode]
             return self.index + (h - self.index) % self.n_local_macronodes
+
+        # (else) blank mode, go over all rows from the current one
         for i in range(self.index, self.index + self.n_local_macronodes):
             if self.get_left_mode(i) == mode:
                 return i
         return None
 
     def blank_mode_count(self) -> int:
-        return self.n_local_macronodes + 1 - len(self._mode_pos)
+        return self.n_local_macronodes + 1 - len(self._mode_row)
 
-    def calc_min_index_to_place_op(self, op_ind: int) -> int | None:
-        """Calculate the minimum finish time of `op`.
+    def calc_min_index_to_place_op(self, op_node_id: int) -> int | None:
+        """Calculate the smallest macronode index at which `op` could be placed.
+
+        This is a lower bound given the current frontier (the theoretical earliest
+        position); the placement actually chosen by the `prepare_*` methods may be later.
 
         Returns:
-            int | None : Minimum finish time of `op`. If the op cannot be placed currently, returns None.
+            int | None: The smallest macronode index at which `op` could be placed,
+                or None if the op cannot be placed currently.
         """
-        if isinstance(self.dep_dag.dag.nodes[op_ind]["op"], gops.Initialization):
+        node_data = self.dep_dag.dag.nodes[op_node_id]
+
+        # 1. initialization
+        if isinstance(node_data["op"], gops.Initialization):
             found_first_blank = False
             if self._up == BLANK_MODE:
                 found_first_blank = True
@@ -162,24 +171,29 @@ class SearchState:
                         return i
                     found_first_blank = True
             return None  # Two blank modes are required to place initialization.
-        modes = self.dep_dag.dag.nodes[op_ind]["modes"]
+        modes = node_data["modes"]
+
+        # 2. single-mode operation
         if len(modes) == 1:
             mode = modes[0]
             blank_index = self.search_mode(BLANK_MODE)
-            mode_index = self.search_mode(mode)
-            return max(blank_index, mode_index)
+            target_index = self.search_mode(mode)
+            return max(blank_index, target_index)
 
+        # 3. two-mode operation
         target_mode1, target_mode2 = modes
         target_mode1_index = self.search_mode(target_mode1)
         target_mode2_index = self.search_mode(target_mode2)
-        target_mode1_h = self.get_coord(target_mode1_index)[0]
-        target_mode2_h = self.get_coord(target_mode2_index)[0]
-        upper_mode_index, lower_mode_index = (
+        target_mode1_row = self.get_coord(target_mode1_index)[0]
+        target_mode2_row = self.get_coord(target_mode2_index)[0]
+        upper_index, lower_index = (
             (target_mode1_index, target_mode2_index)
-            if target_mode1_h < target_mode2_h
+            if target_mode1_row < target_mode2_row
             else (target_mode2_index, target_mode1_index)
         )
-        return lower_mode_index + (self.n_local_macronodes if lower_mode_index < upper_mode_index else 0)
+        if lower_index < upper_index:
+            return lower_index + self.n_local_macronodes
+        return lower_index
 
     def advance_index(self) -> None:
         """Increment index and call functions."""
@@ -187,11 +201,11 @@ class SearchState:
 
     def remove_current_modes(self) -> None:
         """Remove modes on current macronode from SearchState."""
-        self._mode_pos.pop(self._up, None)
+        self._mode_row.pop(self._up, None)
         self._up = BLANK_MODE
 
         h, _ = self.get_coord(self.index)
-        self._mode_pos.pop(self._left[h], None)
+        self._mode_row.pop(self._left[h], None)
         self._left[h] = BLANK_MODE
 
     def insert_through(self, reps: int = 1, *, without_leap: bool = False) -> None:
@@ -221,43 +235,47 @@ class SearchState:
             raise RuntimeError(msg)
         self._swap_pos_set.add(coord)
 
-        h = self.get_coord(self.index)[0]
+        h = coord[0]
+        # actual "SWAP" happens here
         self._up, self._left[h] = self._left[h], self._up
+
+        # update status
         if self._up != BLANK_MODE:
-            self._mode_pos[self._up] = -1
+            self._mode_row[self._up] = -1
         if self._left[h] != BLANK_MODE:
-            self._mode_pos[self._left[h]] = h
+            self._mode_row[self._left[h]] = h
 
         self.advance_index()
 
-    def insert_initialization(self, op_ind: int, *, swap_in_op: bool) -> None:
+    def insert_initialization(self, op_node_id: int, *, swap_in_op: bool) -> None:
         """Insert initialization operation.
 
         Args:
-            op_ind (int): Inserting operation index in the dependency graph.
+            op_node_id (int): The dependency-DAG node id of the operation to insert.
             swap_in_op (bool): Whether the swap operation is included in the operation.
         """
-        op = self.dep_dag.dag.nodes[op_ind]["op"]
-        h = self.get_coord(self.index)[0]
+        op = self.dep_dag.dag.nodes[op_node_id]["op"]
+        coord = self.get_coord(self.index)
+        h = coord[0]
         if op.initialized_modes[0] != BLANK_MODE:
             new_mode = op.initialized_modes[0]
             self._up = new_mode
-            self._mode_pos[new_mode] = -1
+            self._mode_row[new_mode] = -1
         if op.initialized_modes[1] != BLANK_MODE:
             new_mode = op.initialized_modes[1]
             self._left[h] = new_mode
-            self._mode_pos[new_mode] = h
-        self._op_pos_dict[op_ind] = self.get_coord(self.index)
+            self._mode_row[new_mode] = h
+        self._op_pos_dict[op_node_id] = coord
         if swap_in_op:
             self.insert_swap()
         else:
             self.insert_through()
 
-    def insert_single_mode_operation(self, op_ind: int, *, swap_in_op: bool) -> None:
+    def insert_single_mode_operation(self, op_node_id: int, *, swap_in_op: bool) -> None:
         """Insert the single-mode operation.
 
         Args:
-            op_ind (int): Inserting operation index in the dependency graph.
+            op_node_id (int): The dependency-DAG node id of the operation to insert.
             swap_in_op (bool): Whether the swap operation is included in the operation.
 
         Raises:
@@ -266,7 +284,8 @@ class SearchState:
         left = self.get_left_mode(self.index)
         up = self._up
 
-        modes = self.dep_dag.dag.nodes[op_ind]["modes"]
+        node_data = self.dep_dag.dag.nodes[op_node_id]
+        modes = node_data["modes"]
         if BLANK_MODE not in {left, up}:
             msg = "One of the input modes of the current macronode must be blank mode."
             raise RuntimeError(msg)
@@ -274,8 +293,8 @@ class SearchState:
             msg = "The input mode of the operation must match the non-blank mode of the macronode."
             raise RuntimeError(msg)
 
-        op = self.dep_dag.dag.nodes[op_ind]["op"]
-        self._op_pos_dict[op_ind] = self.get_coord(self.index)
+        op = node_data["op"]
+        self._op_pos_dict[op_node_id] = self.get_coord(self.index)
 
         # remove measured modes
         if isinstance(op, gops.Measurement):
@@ -286,38 +305,38 @@ class SearchState:
         else:
             self.insert_through()
 
-    def insert_two_mode_operation(self, op_ind: int, *, swap_in_op: bool) -> None:
+    def insert_two_mode_operation(self, op_node_id: int, *, swap_in_op: bool) -> None:
         """Insert the two-mode operation.
 
         Args:
-            op_ind (int): Inserting operation index in the dependency graph.
+            op_node_id (int): The dependency-DAG node id of the operation to insert.
             swap_in_op (bool): Whether the swap operation is included in the operation.
 
         Raises:
             RuntimeError: Input modes of the operation and the modes of the macronode do not match.
         """
-        modes = self.dep_dag.dag.nodes[op_ind]["modes"]
+        modes = self.dep_dag.dag.nodes[op_node_id]["modes"]
 
         left = self.get_left_mode(self.index)
         up = self._up
 
         if modes[0] not in {left, up} or modes[1] not in {left, up}:
-            msg = "The first input mode of the operation must be the same as the left mode of the macronode."
+            msg = "Both input modes of the operation must match the macronode's input modes (left, up)."
             raise RuntimeError(msg)
 
-        self._op_pos_dict[op_ind] = self.get_coord(self.index)
+        self._op_pos_dict[op_node_id] = self.get_coord(self.index)
         if swap_in_op:
             self.insert_swap()
         else:
             self.insert_through()
 
-    def is_all_dependency_resolved(self, op_ind: int) -> bool:
-        return all(n in self._op_pos_dict for n in self.dep_dag.dag.predecessors(op_ind))
+    def is_all_dependency_resolved(self, op_node_id: int) -> bool:
+        return all(n in self._op_pos_dict for n in self.dep_dag.dag.predecessors(op_node_id))
 
-    def is_already_placed(self, op_ind: int) -> bool:
-        return op_ind in self._op_pos_dict
+    def is_already_placed(self, op_node_id: int) -> bool:
+        return op_node_id in self._op_pos_dict
 
-    def calc_placeable_range(self, op_ind: int) -> tuple[int, int] | None:
+    def calc_placeable_range(self, op_node_id: int) -> tuple[int, int] | None:
         """Calculate the placeable range of an operation.
 
         Returns:
@@ -328,12 +347,13 @@ class SearchState:
             TypeError: The type of parameters of operation does not match
             ValueError: The mode of ModeMeasuredVariable does not match
         """
-        if not self.is_all_dependency_resolved(op_ind):
+        if not self.is_all_dependency_resolved(op_node_id):
             return None  # Some of dependencies are not resolved
+
         inf = 10**9
         min_index = -1
         max_index = inf
-        op = self.dep_dag.dag.nodes[op_ind]["op"]
+        op = self.dep_dag.dag.nodes[op_node_id]["op"]
         for p in op.parameters:
             if not isinstance(p, FeedForward):
                 continue
@@ -343,10 +363,11 @@ class SearchState:
             if p.variable.mode not in self.mode_to_measurement:
                 msg = "The mode of ModeMeasuredVariable does not match."
                 raise ValueError(msg)
-            measurement_ind = self.mode_to_measurement[p.variable.mode]
+            # the measurement which provides the input of the feedforward parameter
+            measurement_node_id = self.mode_to_measurement[p.variable.mode]
 
             # Check if the measurement for variable is already placed
-            from_position = self._op_pos_dict.get(measurement_ind)
+            from_position = self._op_pos_dict.get(measurement_node_id)
             if from_position is None:
                 return None  # Some of operations required for feedforwarding are not placed
             if isinstance(op, gops.Initialization) and self.blank_mode_count() <= 1:
@@ -356,17 +377,35 @@ class SearchState:
             max_index = min(max_index, from_index + self.feedforward_distance[1])
         return (min_index, max_index)
 
-    def place_operation(self, op_ind: int, *, swap_in_op: bool) -> None:
-        if op_ind in self._op_pos_dict:
+    def place_operation(self, op_node_id: int, *, swap_in_op: bool) -> None:
+        """Place the operation into the current state, advancing the frontier as needed.
+
+        Advances the macronode frontier (inserting `through`s) until the earliest
+        geometrically feasible index satisfies the feedforward lower bound, verifies it
+        still fits within the feedforward upper bound, then arranges the input modes
+        (`prepare_*`) and records the operation (`insert_*`).
+
+        Args:
+            op_node_id (int): The dependency-DAG node id of the operation to place.
+            swap_in_op (bool): Whether the swap operation is included in the operation.
+
+        Raises:
+            RuntimeError: The operation is already placed, cannot be placed in the current
+                state, or cannot fit within its feedforward window.
+        """
+        if op_node_id in self._op_pos_dict:
             msg = "This operation has been already placed"
             raise RuntimeError(msg)
-        placeable_range = self.calc_placeable_range(op_ind)
+        placeable_range = self.calc_placeable_range(op_node_id)
         if placeable_range is None:
             msg = "This operation is not placeable currently."
             raise RuntimeError(msg)
         min_index, max_index = placeable_range
+
+        # through until min_index
         while True:
-            placement_index = self.calc_min_index_to_place_op(op_ind)
+            # start from theoretical lower bound
+            placement_index = self.calc_min_index_to_place_op(op_node_id)
             if placement_index is None:
                 msg = "This operation is not placeable currently."
                 raise RuntimeError(msg)
@@ -376,34 +415,49 @@ class SearchState:
         if placement_index > max_index:
             msg = "Failed in insertion of operation."
             raise RuntimeError(msg)
-        modes = self.dep_dag.dag.nodes[op_ind]["modes"]
-        op = self.dep_dag.dag.nodes[op_ind]["op"]
+        modes = self.dep_dag.dag.nodes[op_node_id]["modes"]
+        op = self.dep_dag.dag.nodes[op_node_id]["op"]
         if isinstance(op, gops.Initialization):
             self.prepare_initialization()
-            self.insert_initialization(op_ind, swap_in_op=swap_in_op)
+            self.insert_initialization(op_node_id, swap_in_op=swap_in_op)
         elif len(modes) == 1:
             self.prepare_single_mode_operation(modes[0])
-            self.insert_single_mode_operation(op_ind, swap_in_op=swap_in_op)
+            self.insert_single_mode_operation(op_node_id, swap_in_op=swap_in_op)
         else:
             self.prepare_two_mode_operation(modes[0], modes[1])
-            self.insert_two_mode_operation(op_ind, swap_in_op=swap_in_op)
+            self.insert_two_mode_operation(op_node_id, swap_in_op=swap_in_op)
 
     def generate_next_states(self) -> Generator[SearchState, None, None]:
-        for op_ind in self.dep_dag.dag.nodes:
-            if self.is_already_placed(op_ind) or not self.is_all_dependency_resolved(op_ind):
-                continue
-            placeable_range = self.calc_placeable_range(op_ind)
-            if placeable_range is None:
-                continue
-            _min_index, max_index = placeable_range
-            if self.index > max_index:  # conversion already failed
+        """Yield the states reachable by placing one more operation.
+
+        For each operation whose dependencies are resolved and that is not yet placed,
+        yields a copy of this state with that operation placed - once without and once
+        with a in-place swap (`swap_in_op` False/True).
+
+        As an early prune, if any still-unplaced operation has already missed its
+        feedforward window (the current frontier index is past its latest allowed
+        placement index), this state can never be completed, so nothing is yielded.
+
+        Yields:
+            SearchState: A copy of this state with one more operation placed.
+        """
+        candidates = [
+            op_node_id
+            for op_node_id in self.dep_dag.dag.nodes
+            if not self.is_already_placed(op_node_id) and self.is_all_dependency_resolved(op_node_id)
+        ]
+
+        # Phase 1: if any candidate has already missed its feedforward window, this state is a
+        # dead end (that op can never be placed), so yield no successors.
+        for op_node_id in candidates:
+            placeable_range = self.calc_placeable_range(op_node_id)
+            if placeable_range is not None and self.index > placeable_range[1]:
                 return
 
-        for op_ind, swap_in_op in product(self.dep_dag.dag.nodes, [False, True]):
-            if self.is_already_placed(op_ind) or not self.is_all_dependency_resolved(op_ind):
-                continue
+        # Phase 2: otherwise branch out, placing each candidate once without and once with SWAP.
+        for op_node_id, swap_in_op in product(candidates, [False, True]):
             next_state = self.copy()
-            next_state.place_operation(op_ind, swap_in_op=swap_in_op)
+            next_state.place_operation(op_node_id, swap_in_op=swap_in_op)
             yield next_state
 
     def output_graph(self) -> GraphRepr:  # noqa: C901
@@ -448,10 +502,18 @@ class SearchState:
         return graph
 
     def evaluate(self) -> int:
-        """Return the evaluate value of current state (larger means better)."""
+        """Score this state for the search: the number of operations placed so far.
+
+        Larger is better (more progress toward a complete embedding). Both embedders use
+        this as their heuristic - the greedy embedder maximizes it directly, and beam search
+        keeps the highest-scoring states (via `__lt__`).
+
+        Returns:
+            int: The number of operations placed so far.
+        """
         return len(self._op_pos_dict)
 
-    def __lt__(self, other: SearchState) -> int:
+    def __lt__(self, other: SearchState) -> bool:
         return self.evaluate() < other.evaluate()
 
     def is_all_done(self) -> bool:
@@ -470,7 +532,7 @@ class SearchState:
             return
         if self._up != BLANK_MODE:
             self.insert_swap()
-        second_blank_index = self.find_mode_from_left(BLANK_MODE)
+        second_blank_index = self.search_mode_on_left(BLANK_MODE)
         if second_blank_index is None:
             msg = "Two blank nodes are required to place initialization."
             raise RuntimeError(msg)
@@ -480,31 +542,38 @@ class SearchState:
         """Use through or swap to create a macronode with input modes as (blank, target).
 
         Args:
-            target_mode (int): Mode used for operation.
+            target_mode (int): Mode used for operation. Must be a real (non-blank) mode.
 
         Raises:
+            ValueError: `target_mode` is the blank mode.
             RuntimeError: Mode is not found.
         """
+        if target_mode == BLANK_MODE:
+            msg = "`target_mode` must be a real (non-blank) mode."
+            raise ValueError(msg)
+
         blank_index = self.search_mode(BLANK_MODE)
-        mode_index = self.find_mode_from_left(target_mode)
+        target_left_index = self.search_mode_on_left(target_mode)  # if already in _up, returns None
 
-        if self._up != target_mode and self.get_left_mode(self.index) != target_mode and mode_index is None:
+        # target is neither on the up-rail nor the left-rail, i.e. not in the current frontier
+        if self._up != target_mode and target_left_index is None:
             msg = f"`target_mode` {target_mode} is not found."
             raise RuntimeError(msg)
 
+        # up occupied by another mode, perform SWAP when encounters the first blank or target
         if self._up not in {target_mode, BLANK_MODE}:
-            start_index = self.index
-            next_index = blank_index if mode_index is None else min(mode_index, blank_index)
-            self.insert_through(next_index - start_index, without_leap=True)
-            self.insert_swap()
+            next_index = min(target_left_index, blank_index)
+            self.insert_through(next_index - self.index, without_leap=True)
+            self.insert_swap()  # resulting blank or target in _up
 
+        # up should be occupied by target or BLANK now
         if self._up not in {target_mode, BLANK_MODE}:
             msg = f"`target_mode` {target_mode} is not found."
             raise RuntimeError(msg)
 
-        start_index = self.index
-        next_index = blank_index if mode_index is None else max(mode_index, blank_index)
-        self.insert_through(next_index - start_index)
+        # final case: up is already prepared into either blank or target, prepare left.
+        next_index = blank_index if target_left_index is None else max(target_left_index, blank_index)
+        self.insert_through(next_index - self.index)
 
     def prepare_two_mode_operation(self, target_mode1: int, target_mode2: int) -> None:
         """Place `through` or `swap` operations to make space for the target two-mode operation.
@@ -516,45 +585,50 @@ class SearchState:
         Raises:
             RuntimeError: The target two-mode operation cannot be placed.
         """
-        # Is already prepared
+        # both already prepared
         if (self._up == target_mode1 and self.get_left_mode(self.index) == target_mode2) or (
             self._up == target_mode2 and self.get_left_mode(self.index) == target_mode1
         ):
             return
 
+        # if a target sits on the up-rail but is the lower one (the other target is above it),
+        # swap it down to the left rail so that both targets end up on the left
         if self._up in {target_mode1, target_mode2}:
             other_mode = target_mode2 if self._up == target_mode1 else target_mode1
-            other_mode_index = self.find_mode_from_left(other_mode)
-            if other_mode_index is None:
+            target_other_left_index = self.search_mode_on_left(other_mode)
+            if target_other_left_index is None:
                 msg = f"{other_mode} is not found."
                 raise RuntimeError(msg)
-            if self.get_coord(other_mode_index)[0] >= self.get_coord(self.index)[0]:
-                self.insert_through(other_mode_index - self.index)
-                return
+            if self.get_coord(target_other_left_index)[0] < self.get_coord(self.index)[0]:
+                # the other mode comes before, swap target in up to left
+                self.insert_swap()
+
+        # if both targets are on the left, lift the upper one (smaller row) onto the up-rail
+        if self._up not in {target_mode1, target_mode2}:
+            target_mode1_left_index = self.search_mode_on_left(target_mode1)
+            if target_mode1_left_index is None:
+                msg = f"{target_mode1} is not found."
+                raise RuntimeError(msg)
+
+            target_mode2_left_index = self.search_mode_on_left(target_mode2)
+            if target_mode2_left_index is None:
+                msg = f"{target_mode2} is not found."
+                raise RuntimeError(msg)
+
+            # almost the same as using _mode_row? duplicated.
+            target_mode1_row = self.get_coord(target_mode1_left_index)[0]
+            target_mode2_row = self.get_coord(target_mode2_left_index)[0]
+            upper_index = target_mode1_left_index if target_mode1_row < target_mode2_row else target_mode2_left_index
+            self.insert_through(upper_index - self.index, without_leap=True)  # advance to the swap point
             self.insert_swap()
 
-        target_mode1_index = self.find_mode_from_left(target_mode1)
-        if target_mode1_index is None:
-            msg = f"{target_mode1} is not found."
+        # one target is now on the up-rail and is the upper one; advance until the other target appears on the left
+        other_mode = target_mode2 if self._up == target_mode1 else target_mode1
+        target_other_left_index = self.search_mode_on_left(other_mode)
+        if target_other_left_index is None:
+            msg = f"{other_mode} is not found."
             raise RuntimeError(msg)
-
-        target_mode2_index = self.find_mode_from_left(target_mode2)
-        if target_mode2_index is None:
-            msg = f"{target_mode2} is not found."
-            raise RuntimeError(msg)
-
-        target_mode1_h = self.get_coord(target_mode1_index)[0]
-        target_mode2_h = self.get_coord(target_mode2_index)[0]
-        upper_mode_index, lower_mode_index = (
-            (target_mode1_index, target_mode2_index)
-            if target_mode1_h < target_mode2_h
-            else (target_mode2_index, target_mode1_index)
-        )
-        prepare_index = lower_mode_index + (self.n_local_macronodes if lower_mode_index < upper_mode_index else 0)
-
-        self.insert_through(upper_mode_index - self.index, without_leap=True)
-        self.insert_swap()
-        self.insert_through(prepare_index - self.index)
+        self.insert_through(target_other_left_index - self.index)  # advance to the final placement macronode
 
     def copy(self) -> SearchState:
         """Copy the search state.
@@ -565,7 +639,7 @@ class SearchState:
         copied = SearchState(None, GraphEmbedSettings(self.n_local_macronodes, self.feedforward_distance))
 
         copied._left = self._left.copy()
-        copied._mode_pos = self._mode_pos.copy()
+        copied._mode_row = self._mode_row.copy()
         copied._swap_pos_set = self._swap_pos_set.copy()
         copied._op_pos_dict = self._op_pos_dict.copy()
         copied._up = self._up
