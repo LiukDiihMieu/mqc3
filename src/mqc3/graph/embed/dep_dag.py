@@ -12,11 +12,11 @@ import networkx as nx
 
 import mqc3.circuit.ops.intrinsic as cops
 import mqc3.graph.ops as gops
-from mqc3.circuit.program import CircOpParam, CircuitRepr
+from mqc3.circuit.program import CircuitRepr
 from mqc3.circuit.state import HardwareConstrainedSqueezedState
 from mqc3.feedforward import FeedForward, ff_to_add_constant
 from mqc3.graph.constant import BLANK_MODE
-from mqc3.graph.embed._utility import _convert_cg_param, convert_op
+from mqc3.graph.embed._utility import convert_op, convert_param
 from mqc3.graph.ops import GraphOpParam, Measurement, ModeMeasuredVariable
 from mqc3.graph.program import GraphRepr
 from mqc3.graph.program import Operation as GraphOp
@@ -25,47 +25,21 @@ from mqc3.pb.mqc3_cloud.program.v1.graph_pb2 import GraphOperation as PbOperatio
 DEFAULT_COORDINATE = (-1, -1)
 
 
-def _add_c_disp_to_g_disp(disp1: CircOpParam, disp2: GraphOpParam) -> GraphOpParam:
-    """Construct a new displacement for graph by adding two displacements.
+def _sum_displacements(disp1: GraphOpParam, disp2: GraphOpParam) -> GraphOpParam:
+    """Sum two displacement parameters into one.
+
+    Called component-wise: each call combines a single x or p component of two
+    consecutive displacements on the same mode.
 
     Args:
-        disp1 (CircOpParam): Displacement 1.
-        disp2 (GraphOpParam): Displacement 2.
+        disp1 (GraphOpParam): Displacement component 1.
+        disp2 (GraphOpParam): Displacement component 2.
 
     Returns:
-        GraphOpParam: New displacement.
+        GraphOpParam: Combined displacement component.
 
     Raises:
-        TypeError: Applying multiple displacement with feedforward is not allowed.
-    """
-    if isinstance(disp1, FeedForward):
-        if isinstance(disp2, FeedForward):
-            msg = "Applying multiple displacements with feedforward is not allowed."
-            raise TypeError(msg)
-
-        x1 = _convert_cg_param(disp1)
-        x2 = disp2
-    else:
-        x1 = disp2
-        x2 = disp1
-
-    ff_func = ff_to_add_constant(x2)
-
-    return ff_func(x1)
-
-
-def _add_g_disps(disp1: GraphOpParam, disp2: GraphOpParam) -> GraphOpParam:
-    """Construct a new displacement for graph by adding two displacements.
-
-    Args:
-        disp1 (GraphOpParam): Displacement 1.
-        disp2 (GraphOpParam): Displacement 2.
-
-    Returns:
-        GraphOpParam: New displacement.
-
-    Raises:
-        TypeError: Applying multiple displacement with feedforward is not allowed.
+        TypeError: Applying multiple displacements with feedforward is not allowed.
     """
     if isinstance(disp1, FeedForward):
         if isinstance(disp2, FeedForward):
@@ -89,9 +63,9 @@ class DependencyDAG:
                 The input quantum circuit representation or graph representation
                 from which to build the DependencyDAG.
         """
-        self.dag: nx.DiGraph
+        self.dag: nx.DiGraph  # the dependency graph itself, held as a plain networkx DiGraph
 
-        builder = _DependencyBuilder()
+        builder = _DependencyBuilder()  # stateful helper that constructs self.dag
         if isinstance(circuit_or_graph, CircuitRepr):
             self.dag = builder.from_circuit(circuit_or_graph)
         else:
@@ -100,11 +74,20 @@ class DependencyDAG:
 
 
 class _DependencyBuilder:
+    # Id assigned to the next DAG node (node ids are consecutive ints: 0, 1, 2, ...).
     next_node_id: int
+    # The dependency DAG under construction (see `_add_op_node` for node attributes).
     dep_graph: nx.DiGraph
+    # mode -> displacement (x, p) accumulated on that mode but not attached to a node yet;
+    # `None` means no pending displacement. Displacements never become nodes themselves:
+    # they are attached to the next operation node on the mode (see `_apply_displacement`).
     last_disp_of_modes: dict[int, tuple[GraphOpParam, GraphOpParam] | None]
+    # mode -> node id of the latest operation on that mode, i.e. the current tail of the
+    # mode's wire; the next operation on the mode gets a dependency edge from this node.
     last_op_of_modes: dict[int, int]
-    measurement_to_mode: dict[int, int]
+    # measured mode -> node id of the Measurement operation on that mode; used to resolve
+    # feedforward parameters to the measurement they depend on (see `_apply_feedforward`).
+    mode_to_measurement: dict[int, int]
 
     def __init__(self) -> None:
         pass
@@ -115,17 +98,20 @@ class _DependencyBuilder:
         self.dep_graph = nx.DiGraph()
         self.last_disp_of_modes = defaultdict(lambda: None)
         self.last_op_of_modes = {}
-        self.measurement_to_mode = {}
+        self.mode_to_measurement = {}
 
     def _apply_displacement(self, target: int) -> None:
+        """Attach the pending displacement of each of the target's modes to the target node."""
         modes = self.dep_graph.nodes[target]["modes"]
         for mode in modes:
             prev_disp = self.last_disp_of_modes[mode]
             if prev_disp is not None:
+                # attach, then clear the pending slot
                 self.dep_graph.nodes[target]["displacements"].append((mode, prev_disp))
                 self.last_disp_of_modes[mode] = None
 
     def _apply_dependency(self, target: int) -> None:
+        """Add wire-order edges: on each mode, the previous operation must precede the target."""
         modes = self.dep_graph.nodes[target]["modes"]
         for mode in modes:
             if mode in self.last_op_of_modes:
@@ -134,8 +120,37 @@ class _DependencyBuilder:
             self.last_op_of_modes[mode] = target
 
     def _apply_feedforward(self, target: int) -> None:
+        """Add dependency edges for the feedforward parameters of the target node.
+
+        A feedforward parameter is a function of an earlier measurement outcome, so for
+        each such parameter the measurement node M must precede the target in the DAG.
+        This is the data dependency itself: edge ``M -> target``.
+
+        In addition, every *other* predecessor of the target is forced to precede M
+        (edges ``pred -> M``). This is not a physical requirement but a scheduling
+        guarantee for the embedder, which places operations one by one along the 1-D
+        macronode index and can never revisit a placement. A feedforward consumer must
+        land within ``[i_M + min_dist, i_M + max_dist]`` (``feedforward_distance``), so
+        once M is placed the window starts closing. Undershooting is repairable: the
+        embedder inserts `through` wirings until the consumer passes ``i_M + min_dist``.
+        Overshooting is not: nothing can pull the consumer back under ``i_M + max_dist``.
+        Without the extra edges, M and the target's other prerequisites are unordered,
+        so the embedder may place M first and then burn through the window while placing
+        an arbitrarily long prerequisite chain - stranding the target with no way to
+        backtrack. Forcing all other prerequisites before M removes such orders from the
+        DAG: the moment M is placed, the target is ready and always fits in the window.
+        Direct predecessors suffice because their ancestors precede them by transitivity.
+        The cost is that some physically valid schedules are excluded; the benefit is
+        that embedding never dead-ends on a feedforward window, and M is scheduled as
+        late as possible, which also keeps the result-delivery distance short.
+
+        Raises:
+            TypeError: A feedforward parameter's variable is not a ModeMeasuredVariable.
+            ValueError: A feedforward parameter references a mode that has no measurement.
+        """
         op: GraphOp = self.dep_graph.nodes[target]["op"]
 
+        # Feedforward may sit in the operation's own parameters or in an attached displacement.
         params = list(op.parameters)
         params.extend(self.dep_graph.nodes[target]["displacements"])
         for p in params:
@@ -144,18 +159,21 @@ class _DependencyBuilder:
             if not isinstance(p.variable, ModeMeasuredVariable):
                 msg = "The type of parameters of operation does not match."
                 raise TypeError(msg)
-            if p.variable.mode not in self.measurement_to_mode:
+            if p.variable.mode not in self.mode_to_measurement:
                 msg = "The mode of ModeMeasuredVariable does not match."
                 raise ValueError(msg)
-            measurement_ind = self.measurement_to_mode[p.variable.mode]
+            measurement_node = self.mode_to_measurement[p.variable.mode]
 
-            for n in self.dep_graph.predecessors(target):
-                # avoid deadlock
-                if nx.has_path(self.dep_graph, measurement_ind, n):
+            # Force the target's other prerequisites before M
+            for pred_node in self.dep_graph.predecessors(target):
+                if nx.has_path(self.dep_graph, measurement_node, pred_node):
+                    # M already precedes this predecessor (e.g. it consumes M's result
+                    # itself); adding pred -> M would create a cycle, so keep that order.
                     continue
-                self.dep_graph.add_edge(n, measurement_ind)
+                self.dep_graph.add_edge(pred_node, measurement_node)
 
-            self.dep_graph.add_edge(measurement_ind, target)
+            # The data dependency itself: M's outcome feeds the target's parameter.
+            self.dep_graph.add_edge(measurement_node, target)
             self.dep_graph.nodes[target]["has_nlff"] = True
 
     def _add_op_node(self, op: GraphOp, modes: list[int]) -> None:
@@ -165,7 +183,7 @@ class _DependencyBuilder:
         self.dep_graph.nodes[self.next_node_id]["displacements"] = []
 
         if isinstance(op, Measurement):
-            self.measurement_to_mode[modes[0]] = self.next_node_id
+            self.mode_to_measurement[modes[0]] = self.next_node_id
 
         self._apply_displacement(self.next_node_id)
         self._apply_dependency(self.next_node_id)
@@ -178,16 +196,23 @@ class _DependencyBuilder:
         self._add_op_node(init, [mode])
 
     def _add_displacement(self, disp: cops.Displacement) -> None:
+        """Accumulate a circuit displacement instead of adding a node.
+
+        Displacement is an operation in the circuit representation but not an independent
+        operation in the graph representation: it stays pending in `last_disp_of_modes`
+        (consecutive displacements are summed) until the next operation node on the mode
+        picks it up.
+        """
         mode = disp.opnd().get_ids()[0]
 
         prev_disp = self.last_disp_of_modes[mode]
         if prev_disp is None:
-            self.last_disp_of_modes[mode] = _convert_cg_param(disp.x), _convert_cg_param(disp.p)
+            self.last_disp_of_modes[mode] = convert_param(disp.x), convert_param(disp.p)
         else:
             x, p = prev_disp
             self.last_disp_of_modes[mode] = (
-                _add_c_disp_to_g_disp(disp.x, x),
-                _add_c_disp_to_g_disp(disp.p, p),
+                _sum_displacements(convert_param(disp.x), x),
+                _sum_displacements(convert_param(disp.p), p),
             )
 
     def _add_displacement_from_graph(self, mode: int, params: tuple[GraphOpParam, GraphOpParam]) -> None:
@@ -196,8 +221,8 @@ class _DependencyBuilder:
             self.last_disp_of_modes[mode] = params
         else:
             self.last_disp_of_modes[mode] = (
-                _add_g_disps(params[0], prev_disp[0]),
-                _add_g_disps(params[1], prev_disp[1]),
+                _sum_displacements(params[0], prev_disp[0]),
+                _sum_displacements(params[1], prev_disp[1]),
             )
 
     def _reset_op(self, op: GraphOp) -> GraphOp:
@@ -208,6 +233,11 @@ class _DependencyBuilder:
         return op
 
     def from_circuit(self, circuit: CircuitRepr) -> nx.DiGraph:
+        """Build the dependency DAG from a circuit representation.
+
+        Returns:
+            nx.DiGraph: The constructed dependency DAG.
+        """
         self._clear()
 
         for mode, initial_state in enumerate(circuit.initial_states):
@@ -224,6 +254,9 @@ class _DependencyBuilder:
                 continue
 
             modes = op_in_circ.opnd().get_ids()
+
+            # convert_op lowers a circuit operation to one or more graph operations.
+            # The coordinate is a placeholder, see https://github.com/LiukDiihMieu/mqc3/issues/16
             for op_in_graph in convert_op(op_in_circ, (DEFAULT_COORDINATE)):
                 self._add_op_node(op_in_graph, modes)
 
