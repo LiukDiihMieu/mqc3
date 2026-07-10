@@ -156,7 +156,9 @@ class _DependencyBuilder:
                 raise ValueError(msg)
             measurement_node = self.mode_to_measurement[p.variable.mode]
 
-            # Force the target's other prerequisites before M
+            # Force the target's other prerequisites before M. Adding edges while
+            # iterating is safe here: the new edges (pred -> M) never touch the
+            # target's predecessor set (M -> target is only added after the loop).
             reachable_from_m = nx.descendants(self.dep_graph, measurement_node)
             for pred_node in self.dep_graph.predecessors(target):
                 if pred_node == measurement_node or pred_node in reachable_from_m:
@@ -175,6 +177,9 @@ class _DependencyBuilder:
         if isinstance(op, Measurement):
             self.mode_to_measurement[modes[0]] = self.next_node_id
 
+        # The order is load-bearing: `_apply_feedforward` scans the displacements that
+        # `_apply_displacement` attaches, and iterates the predecessor edges that
+        # `_apply_dependency` creates.
         self._apply_displacement(self.next_node_id)
         self._apply_dependency(self.next_node_id)
         self._apply_feedforward(self.next_node_id)
@@ -251,6 +256,26 @@ class _DependencyBuilder:
         return self.dep_graph
 
     def from_graph(self, graph: GraphRepr) -> nx.DiGraph:
+        """Build the dependency DAG from an already-laid-out graph representation.
+
+        Replays the macronode grid in index order while tracking which mode occupies
+        each rail: `modes[h]` is the mode entering row h from the left, and `modes[-1]`
+        is the mode on the vertical rail entering the current macronode from above.
+        At each macronode the outputs are derived from the operation type (through
+        passes the rails straight, swap crosses them, measurement consumes its input,
+        initialization creates modes), which recovers the modes every operation acts
+        on. Wiring macronodes do not become nodes; edge displacements are
+        re-accumulated and attached to the next operation node on the mode.
+
+        Note: the layout information of the input graph's operations is stripped in
+        place (see `_reset_op` and issue #18).
+
+        Args:
+            graph (GraphRepr): Graph representation to rebuild the dependency DAG from.
+
+        Returns:
+            nx.DiGraph: The constructed dependency DAG.
+        """
         modes = [BLANK_MODE] * (graph.n_local_macronodes + 1)
         for w in range(graph.n_steps):
             for h in range(graph.n_local_macronodes):
