@@ -68,7 +68,8 @@ class DependencyDAG:
             self.dag = builder.from_circuit(circuit_or_graph)
         else:
             self.dag = builder.from_graph(circuit_or_graph)
-        self.n_modes = len(builder.last_op_of_modes)
+        # Number of distinct modes appearing in any operation of the DAG.
+        self.n_modes = len({m for _, data in self.dag.nodes(data=True) for m in data["modes"]})
 
 
 class _DependencyBuilder:
