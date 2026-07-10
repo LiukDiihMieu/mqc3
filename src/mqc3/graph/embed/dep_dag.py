@@ -149,10 +149,10 @@ class _DependencyBuilder:
             if not isinstance(p, FeedForward):
                 continue
             if not isinstance(p.variable, ModeMeasuredVariable):
-                msg = "The type of parameters of operation does not match."
+                msg = f"Feedforward variable must be a ModeMeasuredVariable, got {type(p.variable).__name__}."
                 raise TypeError(msg)
             if p.variable.mode not in self.mode_to_measurement:
-                msg = "The mode of ModeMeasuredVariable does not match."
+                msg = f"Feedforward parameter references mode {p.variable.mode}, which has no preceding measurement."
                 raise ValueError(msg)
             measurement_node = self.mode_to_measurement[p.variable.mode]
 
