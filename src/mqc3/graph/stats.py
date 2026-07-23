@@ -42,7 +42,12 @@ _TWO_MODE_OP_TYPES = (ControlledZ, BeamSplitter, TwoModeShear, Manual)
 
 @dataclass
 class GraphStatistics:
-    """Summary statistics of a `GraphRepr`."""
+    """Summary statistics of a `GraphRepr`.
+
+    `n_through_active`, `n_through_blank`, `n_swap_wiring`, and `n_operations` partition
+    `n_total_macronodes` exhaustively and without overlap:
+    `n_total_macronodes == n_through_active + n_through_blank + n_swap_wiring + n_operations`.
+    """
 
     n_local_macronodes: int
     "The number of local macronodes."
@@ -53,14 +58,33 @@ class GraphStatistics:
     n_total_macronodes: int
     "The total number of macronodes (`n_local_macronodes * n_columns`)."
 
+    n_through_active: int
+    "The number of `Wiring` macronodes with `swap=False` that carry a mode: genuine pass-through routing."
+
+    n_through_blank: int
+    "The number of `Wiring` macronodes with `swap=False` that carry no mode: unused macronodes."
+
+    n_swap_wiring: int
+    "The number of `Wiring` macronodes with `swap=True`: routing overhead with no accompanying operation."
+
+    n_swap_operation: int
+    "The number of non-`Wiring` operations with `swap=True`: an operation that also swaps its outputs "
+    "at no extra macronode cost. A subset of `n_operations`, not part of the total-macronode partition."
+
+    n_operations: int
+    "The number of non-`Wiring` operations, which equals the node count of the embedded dependency DAG."
+
     n_active_macronodes: int
     "The number of macronodes carrying at least one non-blank input or output mode."
 
-    n_through: int
-    "The number of `Wiring` macronodes that are neither a swap nor a gate."
+    avg_macronodes_per_operation: float
+    "`n_active_macronodes / n_operations` (0.0 if there is no operation): routing overhead per operation."
 
-    n_swap: int
-    "The number of operations with `swap=True`, whether or not the macronode carries a mode."
+    feedforward_distances: list[int]
+    "Macronode index gaps between each feedforward's source measurement and its consuming operation."
+
+    measurement_indices: list[int]
+    "Macronode indices of `Measurement` operations."
 
     single_mode_op_indices: dict[str, list[int]]
     "Macronode indices of single-mode gates, keyed by operation class name."
@@ -68,20 +92,8 @@ class GraphStatistics:
     two_mode_op_indices: dict[str, list[int]]
     "Macronode indices of two-mode gates, keyed by operation class name."
 
-    measurement_indices: list[int]
-    "Macronode indices of `Measurement` operations."
-
-    feedforward_distances: list[int]
-    "Macronode index gaps between each feedforward's source measurement and its consuming operation."
-
     n_macronodes_per_mode: dict[int, int]
     "For each mode, the number of macronodes the mode enters or leaves (including its initialization macronode)."
-
-    n_operations: int
-    "The number of non-`Wiring` operations, which equals the node count of the embedded dependency DAG."
-
-    avg_macronodes_per_operation: float
-    "`n_active_macronodes / n_operations` (0.0 if there is no operation): routing overhead per operation."
 
 
 def _resolve_feedforward_distances(graph: GraphRepr) -> list[int]:
@@ -100,16 +112,42 @@ def _resolve_feedforward_distances(graph: GraphRepr) -> list[int]:
     return distances
 
 
-def _count_active_and_mode_usage(graph: GraphRepr) -> tuple[int, dict[int, int]]:
+def _classify_macronodes(graph: GraphRepr) -> tuple[int, int, int, int, dict[int, int]]:
+    """Classify every macronode by mode occupancy, keyed off `io_modes_dict` (also used for mode usage).
+
+    Returns:
+        tuple[int, int, int, int, dict[int, int]]:
+            `(n_through_active, n_through_blank, n_swap_wiring, n_active_macronodes, n_macronodes_per_mode)`.
+    """
+    n_through_active = 0
+    n_through_blank = 0
+    n_swap_wiring = 0
     n_active_macronodes = 0
     n_macronodes_per_mode: dict[int, int] = {}
-    for io_modes in graph.io_modes_dict().values():
+    for (h, w), io_modes in graph.io_modes_dict().items():
         modes_here = {mode for mode in io_modes if mode != BLANK_MODE}
-        if modes_here:
+        active = bool(modes_here)
+        if active:
             n_active_macronodes += 1
         for mode in modes_here:
             n_macronodes_per_mode[mode] = n_macronodes_per_mode.get(mode, 0) + 1
-    return n_active_macronodes, dict(sorted(n_macronodes_per_mode.items()))
+
+        op = graph.operations[h, w]
+        if isinstance(op, Wiring):
+            if op.swap:
+                n_swap_wiring += 1
+            elif active:
+                n_through_active += 1
+            else:
+                n_through_blank += 1
+
+    return (
+        n_through_active,
+        n_through_blank,
+        n_swap_wiring,
+        n_active_macronodes,
+        dict(sorted(n_macronodes_per_mode.items())),
+    )
 
 
 def compute_graph_statistics(graph: GraphRepr) -> GraphStatistics:
@@ -126,26 +164,22 @@ def compute_graph_statistics(graph: GraphRepr) -> GraphStatistics:
         >>> from mqc3.graph.stats import compute_graph_statistics
         >>> graph = GraphRepr(n_local_macronodes=2, n_steps=3)
         >>> graph.place_operation(ops.PhaseRotation((1, 2), phi=1, swap=True))
-        >>> compute_graph_statistics(graph).n_swap
+        >>> compute_graph_statistics(graph).n_swap_operation
         1
     """
-    n_through = 0
-    n_swap = 0
     single_mode_op_indices: dict[str, list[int]] = {}
     two_mode_op_indices: dict[str, list[int]] = {}
     measurement_indices: list[int] = []
 
     n_operations = 0
+    n_swap_operation = 0
     for (h, w), op in graph.operations.items():
         index = graph.get_index(h, w)
 
-        if isinstance(op, Wiring):
-            if not op.swap:
-                n_through += 1
-        else:
+        if not isinstance(op, Wiring):
             n_operations += 1
-        if op.swap:
-            n_swap += 1
+            if op.swap:
+                n_swap_operation += 1
 
         if isinstance(op, _SINGLE_MODE_OP_TYPES):
             single_mode_op_indices.setdefault(type(op).__name__, []).append(index)
@@ -158,20 +192,24 @@ def compute_graph_statistics(graph: GraphRepr) -> GraphStatistics:
         indices.sort()
     measurement_indices.sort()
 
-    n_active_macronodes, n_macronodes_per_mode = _count_active_and_mode_usage(graph)
+    n_through_active, n_through_blank, n_swap_wiring, n_active_macronodes, n_macronodes_per_mode = (
+        _classify_macronodes(graph)
+    )
 
     return GraphStatistics(
         n_local_macronodes=graph.n_local_macronodes,
         n_columns=graph.n_steps,
         n_total_macronodes=graph.n_total_macronodes,
+        n_through_active=n_through_active,
+        n_through_blank=n_through_blank,
+        n_swap_wiring=n_swap_wiring,
+        n_swap_operation=n_swap_operation,
+        n_operations=n_operations,
         n_active_macronodes=n_active_macronodes,
-        n_through=n_through,
-        n_swap=n_swap,
+        avg_macronodes_per_operation=n_active_macronodes / n_operations if n_operations else 0.0,
+        feedforward_distances=_resolve_feedforward_distances(graph),
+        measurement_indices=measurement_indices,
         single_mode_op_indices=single_mode_op_indices,
         two_mode_op_indices=two_mode_op_indices,
-        measurement_indices=measurement_indices,
-        feedforward_distances=_resolve_feedforward_distances(graph),
         n_macronodes_per_mode=n_macronodes_per_mode,
-        n_operations=n_operations,
-        avg_macronodes_per_operation=n_active_macronodes / n_operations if n_operations else 0.0,
     )
