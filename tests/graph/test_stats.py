@@ -24,8 +24,10 @@ def test_empty_graph():
     assert stats.n_columns == 3
     assert stats.n_total_macronodes == 6
     assert stats.n_active_macronodes == 0
-    assert stats.n_through == 6
-    assert stats.n_swap == 0
+    assert stats.n_through_active == 0
+    assert stats.n_through_blank == 6
+    assert stats.n_swap_wiring == 0
+    assert stats.n_swap_operation == 0
     assert stats.single_mode_op_indices == {}
     assert stats.two_mode_op_indices == {}
     assert stats.measurement_indices == []
@@ -44,11 +46,13 @@ def test_sample_graph():
     assert stats.n_total_macronodes == 30
 
     # Pure through wirings: (3, 1), (1, 2), (1, 3), (2, 3), (0, 4), (0, 5), (2, 5), (3, 5), (4, 5).
-    assert stats.n_through == 9
+    # Of these, (0, 5), (2, 5), (3, 5), (4, 5) are blank; the other 5 carry a mode.
+    assert stats.n_through_active == 5
+    assert stats.n_through_blank == 4
 
-    # Swap counts every op with swap=True, gate or wiring:
-    # PhaseRotation (0, 1) and Wirings (2, 1), (0, 2), (0, 3), (4, 3).
-    assert stats.n_swap == 5
+    # Swap wirings (2, 1), (0, 2), (0, 3), (4, 3); swap gate: PhaseRotation (0, 1).
+    assert stats.n_swap_wiring == 4
+    assert stats.n_swap_operation == 1
 
     assert stats.single_mode_op_indices == {
         "PhaseRotation": [g.get_index(0, 1), g.get_index(4, 2)],
@@ -69,6 +73,12 @@ def test_sample_graph():
     # 5 Initialization + 2 PhaseRotation + 1 ShearXInvariant + 2 ControlledZ + 2 BeamSplitter + 5 Measurement.
     assert stats.n_operations == 17
     assert stats.avg_macronodes_per_operation == pytest.approx(26 / 17)
+
+    # n_through_active, n_through_blank, n_swap_wiring, and n_operations partition n_total_macronodes.
+    assert (
+        stats.n_through_active + stats.n_through_blank + stats.n_swap_wiring + stats.n_operations
+        == stats.n_total_macronodes
+    )
 
 
 def test_two_mode_op_indices_sorted():
@@ -99,8 +109,10 @@ def test_swap_wiring_counts():
     g = GraphRepr(3, 3)
     g.place_operation(Wiring((2, 0), swap=True))
     stats = compute_graph_statistics(g)
-    assert stats.n_swap == 1
-    assert stats.n_through == 8
+    assert stats.n_swap_wiring == 1
+    assert stats.n_swap_operation == 0
+    assert stats.n_through_active == 0
+    assert stats.n_through_blank == 8
     # No mode is ever initialized, so nothing is active.
     assert stats.n_active_macronodes == 0
     assert stats.n_macronodes_per_mode == {}
