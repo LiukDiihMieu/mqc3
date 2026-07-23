@@ -54,12 +54,8 @@ dev = [
   "pathos",
 
   # Document
-  "sphinx",
-  "sphinx_copybutton",
-  "sphinxcontrib-bibtex",
-  "myst-parser",
-  "myst-nb",
-  "furo",
+  "jupyter-book",
+  "jupytext",
   "jupyter",
   "ipykernel",
 ]
